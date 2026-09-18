@@ -1,6 +1,8 @@
 import sympy as sp
+import matplotlib.pyplot as plt
+import numpy as np
 
-def find_var(expr):
+def find_var(expr): #helper function
     variables = expr.free_symbols
     if len(variables) != 1:
         raise ValueError("0 or >1 free symbols")
@@ -45,6 +47,23 @@ def evaluate_and_compare(expr, point, n, x_eval, var=None):
     rel_error = abs_error/true_value
     return {"approx" : approx, "true_value" : true_value, "abs_error" : abs_error, "rel_error" : rel_error}
 
+def plot_taylor_approximations(expr, point, orders,x_range, var=None):
+    x_arr = np.linspace(x_range[0],x_range[1],300)
+    if var == None:
+        var = find_var(expr)
+    f = sp.lambdify(var,expr)
+    y_f = f(x_arr)
+    plt.plot(x_arr,y_f,label = "f(x)")
+    for order in orders:
+        series = taylor_series(expr,point, order,var)
+        der = sp.lambdify(var,series["polynomial"])
+        y_arr = der(x_arr)
+        label = f"P_{order}(x)"
+        plt.plot(x_arr,y_arr,label=label)
+    plt.legend()
+    plt.title(f"Taylor Approximations of {sp.latex(expr)} at x={point}")
+    plt.savefig('taylor_plot.png', dpi=300)
+    
 
 
 if __name__ == "__main__":
@@ -52,3 +71,4 @@ if __name__ == "__main__":
     expr = sp.exp(x)
     print(taylor_series(expr,0,3))
     print(evaluate_and_compare(expr,0,3,1))
+    plot_taylor_approximations(expr, 0, [1, 3], [-3, 3])  
