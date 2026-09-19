@@ -161,3 +161,9 @@ if __name__ == "__main__":
     print(result)
     print(result["root"]) 
 
+#to do: - implement verbose and also the func parameter im not sure yet what they mean so
+#       - handle edge case #8: "relative error type when pn passes extremely close 
+#           to 0 (potential division by a nearzero number) decide on and document a 
+#          safeguard (e.g. adding a small epsilon to the denominator, or falling back 
+#          to absolute error when |pn| is below some threshold) and justify your choice in the report."
+#       - implement plot_convergence(result) function #7 in required functionality. 
