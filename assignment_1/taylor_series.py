@@ -3,12 +3,74 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def find_var(expr): #helper function
+    """
+    Helper function to find the variable of expansion in a sympy expression.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression from which to infer the variable.
+    Returns
+    -------
+    sympy.Symbol
+        The variable of expansion.
+    Raises
+    ------
+    ValueError
+        If 'expr' has zero or more than one free symbol.
+    Example
+    -------
+    import sympy as sp
+    x = sp.Symbol('x')
+    expr = sp.exp(x) + sp.sin(x)
+    print(find_var(expr))  # Output: x
+    """
     variables = expr.free_symbols
     if len(variables) != 1:
         raise ValueError("0 or > 1 free symbols")
     return list(variables)[0]
 
 def taylor_series ( expr , point , n , var = None ):
+
+    """
+        Construct the n-th order Taylor polynomial of 'expr' about 'point',
+        symbolically, using term-by-term differentiation.
+
+        Parameters
+        ----------
+        expr : sympy.Expr or str
+            The function to expand, e.g. sympy.exp(x) or "exp(x)*sin(x)".
+        point : int, float, or sympy number
+            The expansion point x_0.
+        n : int
+            The order of the Taylor polynomial (must satisfy n >= 0).
+        var : sympy.Symbol, optional
+            The variable of expansion. If None, its inferred
+            automatically from 'expr' (raises an error if 'expr' has zero
+            or more than one free symbol and var was not supplied).
+
+        Returns
+        -------
+        dict
+            {
+                "polynomial": sympy.Expr,  # P_n(x), fully simplified
+                "terms": list[sympy.Expr], # individual terms, term[k] is the kth-order contribution
+                "remainder": sympy.Expr,   # symbolic R_n(x) with a fresh symbol xi
+                "latex": str               # LaTeX string of the polynomial
+            }
+
+        Raises
+        ------
+        ValueError
+            If n < 0, if 'var' cannot be inferred, or if 'expr' is not
+            n+1 times differentiable at a symbolic level.
+            
+        Example
+        -------
+        import sympy as sp
+        x = sp.Symbol('x')
+        print(taylor_series(sp.exp(x), 0, 2))
+        """
 
     if (type(expr) == str):
         expr = sp.sympify(expr)
@@ -43,6 +105,35 @@ def taylor_series ( expr , point , n , var = None ):
     return return_data
 
 def evaluate_and_compare(expr, point, n, x_eval, var=None):
+    """
+    Evaluates a Taylor polynomial and the function's value at a specific point to compute errors.
+
+    Parameters
+    ----------
+    expr : sympy.Expr or str
+        The function to approximate.
+    point : float or int
+        The expansion point x_0 for the Taylor series.
+    n : int
+        The order of the Taylor polynomial.
+    x_eval : float
+        The point at which to evaluate both the function and the approximation.
+    var : sympy.Symbol, optional
+        The variable of expansion. Inferred automatically if None.
+
+    Returns
+    -------
+    dict
+        A dictionary containing:
+        - "approx": The numerical value of the Taylor polynomial at x_eval.
+        - "true_value": The numerical value of the actual function at x_eval.
+        - "abs_error": The absolute difference between true_value and approx.
+        - "rel_error": The relative error of the approximation.
+
+    Example
+    -------
+    print(evaluate_and_compare('exp(x)', 0, 3, 0.5))
+    """
     if (type(expr) == str):
             expr = sp.sympify(expr)
     if var == None:
@@ -56,6 +147,47 @@ def evaluate_and_compare(expr, point, n, x_eval, var=None):
     return {"approx" : approx, "true_value" : true_value, "abs_error" : abs_error, "rel_error" : rel_error}
 
 def plot_taylor_approximations(expr, point, orders,x_range, var=None):
+    """
+    Plots the true function 'expr' alongside its Taylor polynomial approximations 
+    for various orders over a specified range using matplotlib.
+
+    Parameters
+    ----------
+    expr : sympy.Expr or str
+        The function to approximate and plot.
+    point : int, float, or sympy number
+        The expansion point x_0 for the Taylor series.
+    orders : list[int]
+        A list of polynomial orders to plot (e.g., [1, 2, 4, 6]).
+    x_range : list[float] or tuple[float, float]
+        The lower and upper bounds for the x-axis domain [xmin, xmax].
+    var : sympy.Symbol, optional
+        The variable of expansion. Inferred automatically from 'expr' if None.
+
+    Returns
+    -------
+    None
+        Saves the resulting plot as 'taylor_plot.png' to the current directory.
+
+    Raises
+    ------
+    ValueError
+        If 'var' cannot be inferred or if orders contain invalid values.
+
+    Example
+    -------
+    import sympy as sp
+    x = sp.Symbol('x')
+    plot_taylor_approximations(sp.cos(x), 0, [1, 2, 4, 6], [-6.28, 6.28])
+    """
+
+    if (type(expr) == str):
+        expr = sp.sympify(expr)
+
+    if type(orders) == int:
+        orders = [orders]
+    elif type(orders) != list:
+         raise ValueError("orders must be an integer or a list of integers")
     x_arr = np.linspace(x_range[0],x_range[1],300)
     if var == None:
         var = find_var(expr)
