@@ -1,6 +1,6 @@
-import sympy as sp
 import matplotlib.pyplot as plt
 import numpy as np
+import sympy as sp
 
 
 def bisection(
@@ -45,18 +45,20 @@ def bisection(
     1.4142
     """
 
-
-
-
-    if not callable(f): 
-        hint = " If you passed a SymPy expression, convert it using sympy.lambdify." if hasattr(f, "free_symbols") or str(type(f)).startswith("<class 'sympy") else ""
+    if not callable(f):
+        hint = (
+            " If you passed a SymPy expression, convert it using sympy.lambdify."
+            if hasattr(f, "free_symbols") or str(type(f)).startswith("<class 'sympy")
+            else ""
+        )
         raise TypeError(
             f"Parameter 'f' must be a callable function (e.g., lambda x: ...). Got type {type(f).__name__}.{hint}"
         )
 
-    if a >= b :
-        raise ValueError(f"Endpoint 'a' must be strictly less than 'b' (a < b). Got a = {a}, b = {b}.")
-
+    if a >= b:
+        raise ValueError(
+            f"Endpoint 'a' must be strictly less than 'b' (a < b). Got a = {a}, b = {b}."
+        )
 
     if tol <= 0:
         raise ValueError("Tolerance has to be greater than 0")
@@ -93,15 +95,10 @@ def bisection(
             "a_priori_iterations": int(np.ceil(np.log2((b - a) / tol))),
         }
 
-    
-
     if np.sign(fa) * np.sign(fb) >= 0:
         raise ValueError(
-
-
             f"Root is not bracketed: f(a) and f(b) must have opposite signs (f(a)*f(b) < 0). "
             f"Got f({a}) = {fa} and f({b}) = {fb}."
-
         )
 
     p_prev = None
@@ -111,14 +108,14 @@ def bisection(
 
     a_priori_iterations = int(np.ceil(np.log2((b - a) / tol)))
 
-
     if verbose:
-        print(f"{'n':<5} | {'a':<14} | {'b':<14} | {'p':<14} | {'f(p)':<14} | {'Width':<12}")
+        print(
+            f"{'n':<5} | {'a':<14} | {'b':<14} | {'p':<14} | {'f(p)':<14} | {'Width':<12}"
+        )
         print("-" * 80)
 
-
-    for n in range (1 , max_iter+1):
-        p = a + (b-a)/2 
+    for n in range(1, max_iter + 1):
+        p = a + (b - a) / 2
         fp = f(p)
 
         interval_w = interval(a, b)
@@ -297,7 +294,7 @@ if __name__ == "__main__":
     f1 = lambda x: x**3 - x - 2
     res1 = bisection(f1, 1.0, 2.0, tol=1e-6, error_type="interval", verbose=True)
 
-    print(f"\nTarget function: f(x) = x^3 - x - 2 on [1.0, 2.0]")
+    print("\nTarget function: f(x) = x^3 - x - 2 on [1.0, 2.0]")
     print(f"Root: {res1['root']}")
     print(f"Converged: {res1['converged']}")
     print(f"Reason: {res1['reason']}")
@@ -308,12 +305,18 @@ if __name__ == "__main__":
     print("\nHistory (First 3 and Last 3 Iterations):")
     h = res1["history"]
     sample_history = h[:3] + h[-3:] if len(h) >= 6 else h
-    print(f"{'n':<4} | {'a':<12} | {'b':<12} | {'p':<12} | {'f(p)':<14} | {'Width':<12}")
+    print(
+        f"{'n':<4} | {'a':<12} | {'b':<12} | {'p':<12} | {'f(p)':<14} | {'Width':<12}"
+    )
     print("-" * 75)
     for row in sample_history:
-        print(f"{row['n']:<4} | {row['a']:<12.6f} | {row['b']:<12.6f} | {row['p']:<12.6f} | {row['f_p']:<14.6e} | {row['interval_width']:<12.6e}")
-        if row['n'] == 3 and len(h) >= 6:
-            print(" ...  |     ...      |     ...      |     ...      |      ...       |     ...")
+        print(
+            f"{row['n']:<4} | {row['a']:<12.6f} | {row['b']:<12.6f} | {row['p']:<12.6f} | {row['f_p']:<14.6e} | {row['interval_width']:<12.6e}"
+        )
+        if row["n"] == 3 and len(h) >= 6:
+            print(
+                " ...  |     ...      |     ...      |     ...      |      ...       |     ..."
+            )
 
     # -------------------------------------------------------------------------
     # Test Case (ii): Comparison of 4 stopping criteria + "all" on f1, tol=1e-6
@@ -324,7 +327,9 @@ if __name__ == "__main__":
     print("-" * 75)
     for crit in criteria:
         res_crit = bisection(f1, 1.0, 2.0, tol=1e-6, error_type=crit)
-        print(f"{crit:<12} | {res_crit['iterations']:<10} | {res_crit['root']:<14.8f} | {res_crit['reason']}")
+        print(
+            f"{crit:<12} | {res_crit['iterations']:<10} | {res_crit['root']:<14.8f} | {res_crit['reason']}"
+        )
 
     # -------------------------------------------------------------------------
     # Test Case (iii): Nine Deliberately Triggered Failure Modes & Edge Cases
@@ -345,11 +350,15 @@ if __name__ == "__main__":
 
     # 3. f(a) = 0 exactly (boundary root short-circuit)
     res_fa0 = bisection(lambda x: (x - 1.0) * (x - 3.0), 1.0, 2.5)
-    print(f"[Handled Edge Case 3 (f(a)==0)]: Root = {res_fa0['root']}, Iters = {res_fa0['iterations']}, Reason = '{res_fa0['reason']}'")
+    print(
+        f"[Handled Edge Case 3 (f(a)==0)]: Root = {res_fa0['root']}, Iters = {res_fa0['iterations']}, Reason = '{res_fa0['reason']}'"
+    )
 
     # 4. f(b) = 0 exactly (boundary root short-circuit)
     res_fb0 = bisection(lambda x: (x - 1.0) * (x - 3.0), 0.0, 3.0)
-    print(f"[Handled Edge Case 4 (f(b)==0)]: Root = {res_fb0['root']}, Iters = {res_fb0['iterations']}, Reason = '{res_fb0['reason']}'")
+    print(
+        f"[Handled Edge Case 4 (f(b)==0)]: Root = {res_fb0['root']}, Iters = {res_fb0['iterations']}, Reason = '{res_fb0['reason']}'"
+    )
 
     # 5. tol <= 0
     try:
@@ -371,18 +380,22 @@ if __name__ == "__main__":
 
     # 8. f is not callable (tested with a SymPy expression to trigger lambdify guidance)
     try:
-        x_sym = sp.Symbol('x')
+        x_sym = sp.Symbol("x")
         bisection(x_sym**2 - 2, 1.0, 2.0)
     except TypeError as e:
         print(f"[Caught Edge Case 8 (f not callable, SymPy hint)]: {e}")
 
     # 9. max_iter reached without convergence (e.g. max_iter=3)
     res_max = bisection(f1, 1.0, 2.0, tol=1e-8, max_iter=3)
-    print(f"[Handled Edge Case 9 (max_iter too low)]: Converged = {res_max['converged']}, Reason = '{res_max['reason']}'")
+    print(
+        f"[Handled Edge Case 9 (max_iter too low)]: Converged = {res_max['converged']}, Reason = '{res_max['reason']}'"
+    )
 
     # 10. Relative error safeguard near zero: f(x) = x on [-1, 2]
     res_zero = bisection(lambda x: x, -1.0, 2.0, tol=1e-8, error_type="relative")
-    print(f"[Handled Edge Case 10 (Relative error near zero root)]: Root = {res_zero['root']:.2e}, Iters = {res_zero['iterations']}, Converged = {res_zero['converged']}")
+    print(
+        f"[Handled Edge Case 10 (Relative error near zero root)]: Root = {res_zero['root']:.2e}, Iters = {res_zero['iterations']}, Converged = {res_zero['converged']}"
+    )
 
     # -------------------------------------------------------------------------
     # Test Case (iv): f(x) = sin(4*pi*x) on [0, 1] and multi-root bracket [0.1, 0.9]
@@ -393,21 +406,35 @@ if __name__ == "__main__":
     # 1. Demonstration of [0, 1]: f(0) = 0 exactly hits the short-circuit condition
     res_sin_01 = bisection(f_sin, 0.0, 1.0)
     print("Full interval [0, 1] execution:")
-    print(f"  Result: Root = {res_sin_01['root']}, Iters = {res_sin_01['iterations']}, Reason = '{res_sin_01['reason']}'")
-    print("  Explanation: f(0) = sin(0) = 0.0, so Requirement (2) short-circuits immediately without iterating.")
+    print(
+        f"  Result: Root = {res_sin_01['root']}, Iters = {res_sin_01['iterations']}, Reason = '{res_sin_01['reason']}'"
+    )
+    print(
+        "  Explanation: f(0) = sin(0) = 0.0, so Requirement (2) short-circuits immediately without iterating."
+    )
 
     # 2. Multi-root interval [0.1, 0.9]: contains roots at x = 0.25, 0.5, 0.75
     # f(0.1) = sin(0.4*pi) ≈ 0.9511 > 0, f(0.9) = sin(3.6*pi) ≈ -0.9511 < 0 -> Valid bracket!
     sub_a, sub_b = 0.1, 0.9
     res_multi = bisection(f_sin, sub_a, sub_b, tol=1e-6, error_type="interval")
-    print(f"\nMulti-root bracket [{sub_a}, {sub_b}] (Contains roots at 0.25, 0.5, 0.75):")
+    print(
+        f"\nMulti-root bracket [{sub_a}, {sub_b}] (Contains roots at 0.25, 0.5, 0.75):"
+    )
     print(f"  Root found: {res_multi['root']:.6f}")
     print(f"  Iterations: {res_multi['iterations']}")
     print("  Trajectory of midpoints: ")
-    print(f"    p1 = {res_multi['history'][0]['p']:.4f}, f(p1) = {res_multi['history'][0]['f_p']:.4f} -> f(0.5) = 0, updates bracket")
-    print(f"    p2 = {res_multi['history'][1]['p']:.4f}, f(p2) = {res_multi['history'][1]['f_p']:.4f} -> f(0.3) < 0, updates b = 0.3")
-    print(f"    p3 = {res_multi['history'][2]['p']:.4f}, f(p3) = {res_multi['history'][2]['f_p']:.4f} -> f(0.2) > 0, updates a = 0.2")
-    print(f"    p4 = {res_multi['history'][3]['p']:.4f}, f(p4) = {res_multi['history'][3]['f_p']:.4f} -> converges towards root 0.25")
+    print(
+        f"    p1 = {res_multi['history'][0]['p']:.4f}, f(p1) = {res_multi['history'][0]['f_p']:.4f} -> f(0.5) = 0, updates bracket"
+    )
+    print(
+        f"    p2 = {res_multi['history'][1]['p']:.4f}, f(p2) = {res_multi['history'][1]['f_p']:.4f} -> f(0.3) < 0, updates b = 0.3"
+    )
+    print(
+        f"    p3 = {res_multi['history'][2]['p']:.4f}, f(p3) = {res_multi['history'][2]['f_p']:.4f} -> f(0.2) > 0, updates a = 0.2"
+    )
+    print(
+        f"    p4 = {res_multi['history'][3]['p']:.4f}, f(p4) = {res_multi['history'][3]['f_p']:.4f} -> converges towards root 0.25"
+    )
 
     # -------------------------------------------------------------------------
     # Test Case (v): Convergence Plot Generation
@@ -415,6 +442,3 @@ if __name__ == "__main__":
     print("\n" + "=" * 30 + " TEST CASE (v) " + "=" * 30)
     plot_convergence(res1)
     print("All test cases completed successfully.")
-        
-
-
