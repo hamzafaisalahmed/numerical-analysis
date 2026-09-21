@@ -3,35 +3,6 @@ import numpy as np
 import sympy as sp
 
 
-def find_var(expr):  # helper function
-    """
-    Helper function to find the variable of expansion in a sympy expression.
-
-    Parameters
-    ----------
-    expr : sympy.Expr
-        The expression from which to infer the variable.
-    Returns
-    -------
-    sympy.Symbol
-        The variable of expansion.
-    Raises
-    ------
-    ValueError
-        If 'expr' has zero or more than one free symbol.
-    Example
-    -------
-    import sympy as sp
-    x = sp.Symbol('x')
-    expr = sp.exp(x) + sp.sin(x)
-    print(find_var(expr))  # Output: x
-    """
-    variables = expr.free_symbols
-    if len(variables) != 1:
-        raise ValueError("0 or > 1 free symbols")
-    return next(iter(variables))
-
-
 def taylor_series(expr, point, n, var=None):
     """
     Construct the n-th order Taylor polynomial of 'expr' about 'point',
@@ -113,6 +84,36 @@ def taylor_series(expr, point, n, var=None):
     ) * (var - point) ** (n + 1)
 
     return return_data
+
+
+# |------------------------------ Helper Functions ------------------------------|
+def find_var(expr):
+    """
+    Helper function to find the variable of expansion in a sympy expression.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression from which to infer the variable.
+    Returns
+    -------
+    sympy.Symbol
+        The variable of expansion.
+    Raises
+    ------
+    ValueError
+        If 'expr' has zero or more than one free symbol.
+    Example
+    -------
+    import sympy as sp
+    x = sp.Symbol('x')
+    expr = sp.exp(x) + sp.sin(x)
+    print(find_var(expr))  # Output: x
+    """
+    variables = expr.free_symbols
+    if len(variables) != 1:
+        raise ValueError("0 or > 1 free symbols")
+    return next(iter(variables))
 
 
 def evaluate_and_compare(expr, point, n, x_eval, var=None):
