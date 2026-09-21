@@ -45,6 +45,7 @@ def bisection(
     1.4142
     """
 
+<<<<<<< Updated upstream
     if not callable(f):
         raise TypeError(
             f"Parameter 'f' must be a callable function (e.g., lambda x: ...). Got type {type(f).__name__}."
@@ -52,6 +53,17 @@ def bisection(
 
     if a >= b:
         raise ValueError(a, " must be strictly less than", b)
+=======
+
+    if not callable(f): 
+        hint = " If you passed a SymPy expression, convert it using sympy.lambdify." if hasattr(f, "free_symbols") or str(type(f)).startswith("<class 'sympy") else ""
+        raise TypeError(
+            f"Parameter 'f' must be a callable function (e.g., lambda x: ...). Got type {type(f).__name__}.{hint}"
+        )
+
+    if a >= b :
+        raise ValueError(f"Endpoint 'a' must be strictly less than 'b' (a < b). Got a = {a}, b = {b}.")
+>>>>>>> Stashed changes
 
     if tol <= 0:
         raise ValueError("Tolerance has to be greater than 0")
@@ -88,9 +100,16 @@ def bisection(
             "a_priori_iterations": int(np.ceil(np.log2((b - a) / tol))),
         }
 
+    
+
     if np.sign(fa) * np.sign(fb) >= 0:
         raise ValueError(
+<<<<<<< Updated upstream
             "root is not bracketed product of fa and fb must have opp signs"
+=======
+            f"Root is not bracketed: f(a) and f(b) must have opposite signs (f(a)*f(b) < 0). "
+            f"Got f({a}) = {fa} and f({b}) = {fb}."
+>>>>>>> Stashed changes
         )
 
     p_prev = None
@@ -100,8 +119,18 @@ def bisection(
 
     a_priori_iterations = int(np.ceil(np.log2((b - a) / tol)))
 
+<<<<<<< Updated upstream
     for n in range(1, max_iter + 1):
         p = a + (b - a) / 2
+=======
+    if verbose:
+        print(f"{'n':<5} | {'a':<14} | {'b':<14} | {'p':<14} | {'f(p)':<14} | {'Width':<12}")
+        print("-" * 80)
+
+
+    for n in range (1 , max_iter+1):
+        p = a + (b-a)/2 
+>>>>>>> Stashed changes
         fp = f(p)
 
         interval_w = interval(a, b)
@@ -178,7 +207,7 @@ def plot_convergence(result):
         iterations,
         interval_widths,
         "bo-",
-        label="Empirical Interval Width (b_n - a_n)",
+        label="Empirical Interval Width $(b_n - a_n)$",
         linewidth=1.5,
         markersize=5,
     )
@@ -186,11 +215,11 @@ def plot_convergence(result):
         iterations,
         theoretical_widths,
         "r--",
-        label="Theoretical Rate: W_1 \\cdot (1/2)^{n-1}",
+        label="Theoretical Rate: $W_1 \\cdot (1/2)^{n-1}$",
         linewidth=2,
     )
 
-    plt.xlabel("Iteration Number (n)")
+    plt.xlabel("Iteration Number ($n$)")
     plt.ylabel("Interval Width (log scale)")
     plt.title(
         f"Bisection Method Convergence Rate (Total Iterations: {len(iterations)})"
@@ -201,7 +230,7 @@ def plot_convergence(result):
 
     output_filename = "bisection_convergence.png"
     plt.savefig(output_filename, dpi=300)
-    plt.close()  # Close figure to free memory
+    plt.close()  # Close to free memory
 
     print(f"Convergence plot saved successfully to {output_filename}")
 
@@ -273,12 +302,14 @@ if __name__ == "__main__":
 
     # -------------------------------------------------------------------------
     # Test Case (i): f(x) = x^3 - x - 2 on [1, 2], error_type="interval", tol=1e-6
+    # Demonstrating verbose=True table printout with header row
     # -------------------------------------------------------------------------
     print("\n" + "=" * 30 + " TEST CASE (i) " + "=" * 30)
+    print("Demonstrating verbose=True table printout:")
     f1 = lambda x: x**3 - x - 2
-    res1 = bisection(f1, 1.0, 2.0, tol=1e-6, error_type="interval", verbose=False)
+    res1 = bisection(f1, 1.0, 2.0, tol=1e-6, error_type="interval", verbose=True)
 
-    print(f"Target function: f(x) = x^3 - x - 2 on [1.0, 2.0]")
+    print(f"\nTarget function: f(x) = x^3 - x - 2 on [1.0, 2.0]")
     print(f"Root: {res1['root']}")
     print(f"Converged: {res1['converged']}")
     print(f"Reason: {res1['reason']}")
@@ -320,13 +351,13 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     print("\n" + "=" * 30 + " TEST CASE (iii) " + "=" * 30)
 
-    # 1. a >= b
+    # 1. a >= b (demonstrates single formatted string instead of tuple)
     try:
         bisection(f1, 2.0, 1.0)
     except ValueError as e:
         print(f"[Caught Edge Case 1 (a >= b)]: {e}")
 
-    # 2. f(a) and f(b) have the same sign
+    # 2. f(a) and f(b) have the same sign (reports actual f(a) and f(b))
     try:
         bisection(lambda x: x**2 - 1, -0.5, 0.5)
     except ValueError as e:
@@ -362,11 +393,12 @@ if __name__ == "__main__":
     except ValueError as e:
         print(f"[Caught Edge Case 7 (Invalid error_type)]: {e}")
 
-    # 8. f is not callable
+    # 8. f is not callable (tested with a SymPy expression to trigger lambdify guidance)
     try:
-        bisection("not_callable", 1.0, 2.0)
+        x_sym = sp.Symbol('x')
+        bisection(x_sym**2 - 2, 1.0, 2.0)
     except TypeError as e:
-        print(f"[Caught Edge Case 8 (f not callable)]: {e}")
+        print(f"[Caught Edge Case 8 (f not callable, SymPy hint)]: {e}")
 
     # 9. max_iter reached without convergence (e.g. max_iter=3)
     res_max = bisection(f1, 1.0, 2.0, tol=1e-8, max_iter=3)
@@ -374,26 +406,34 @@ if __name__ == "__main__":
         f"[Handled Edge Case 9 (max_iter too low)]: Converged = {res_max['converged']}, Reason = '{res_max['reason']}'"
     )
 
+    # 10. Relative error safeguard near zero: f(x) = x on [-1, 2]
+    res_zero = bisection(lambda x: x, -1.0, 2.0, tol=1e-8, error_type="relative")
+    print(f"[Handled Edge Case 10 (Relative error near zero root)]: Root = {res_zero['root']:.2e}, Iters = {res_zero['iterations']}, Converged = {res_zero['converged']}")
+
     # -------------------------------------------------------------------------
-    # Test Case (iv): f(x) = sin(4*pi*x) on [0, 1]
-    # Note: f(0) = sin(0) = 0 and f(1) = sin(4*pi) = 0, so [0, 1] does NOT satisfy f(a)*f(b) < 0.
-    # We demonstrate this bracketing failure first, then solve on a valid sub-interval.
+    # Test Case (iv): f(x) = sin(4*pi*x) on [0, 1] and multi-root bracket [0.1, 0.9]
     # -------------------------------------------------------------------------
     print("\n" + "=" * 30 + " TEST CASE (iv) " + "=" * 30)
     f_sin = lambda x: np.sin(4 * np.pi * x)
-    try:
-        print("Attempting bisection on full interval [0, 1]:")
-        bisection(f_sin, 0.0, 1.0)
-    except ValueError as e:
-        print(f"Verification: [0, 1] fails opposite sign requirement as expected: {e}")
 
-    # Choose valid sub-bracket containing root at x = 0.25 (e.g. [0.1, 0.3])
-    # f(0.1) = sin(0.4*pi) > 0, f(0.3) = sin(1.2*pi) < 0
-    sub_a, sub_b = 0.1, 0.3
-    res_sin = bisection(f_sin, sub_a, sub_b, tol=1e-6, error_type="interval")
-    print(f"\nEvaluating valid sub-bracket [{sub_a}, {sub_b}]:")
-    print(f"Root found: {res_sin['root']:.6f} (Theoretical root: 0.25)")
-    print(f"Iterations: {res_sin['iterations']}")
+    # 1. Demonstration of [0, 1]: f(0) = 0 exactly hits the short-circuit condition
+    res_sin_01 = bisection(f_sin, 0.0, 1.0)
+    print("Full interval [0, 1] execution:")
+    print(f"  Result: Root = {res_sin_01['root']}, Iters = {res_sin_01['iterations']}, Reason = '{res_sin_01['reason']}'")
+    print("  Explanation: f(0) = sin(0) = 0.0, so Requirement (2) short-circuits immediately without iterating.")
+
+    # 2. Multi-root interval [0.1, 0.9]: contains roots at x = 0.25, 0.5, 0.75
+    # f(0.1) = sin(0.4*pi) ≈ 0.9511 > 0, f(0.9) = sin(3.6*pi) ≈ -0.9511 < 0 -> Valid bracket!
+    sub_a, sub_b = 0.1, 0.9
+    res_multi = bisection(f_sin, sub_a, sub_b, tol=1e-6, error_type="interval")
+    print(f"\nMulti-root bracket [{sub_a}, {sub_b}] (Contains roots at 0.25, 0.5, 0.75):")
+    print(f"  Root found: {res_multi['root']:.6f}")
+    print(f"  Iterations: {res_multi['iterations']}")
+    print("  Trajectory of midpoints: ")
+    print(f"    p1 = {res_multi['history'][0]['p']:.4f}, f(p1) = {res_multi['history'][0]['f_p']:.4f} -> f(0.5) = 0, updates bracket")
+    print(f"    p2 = {res_multi['history'][1]['p']:.4f}, f(p2) = {res_multi['history'][1]['f_p']:.4f} -> f(0.3) < 0, updates b = 0.3")
+    print(f"    p3 = {res_multi['history'][2]['p']:.4f}, f(p3) = {res_multi['history'][2]['f_p']:.4f} -> f(0.2) > 0, updates a = 0.2")
+    print(f"    p4 = {res_multi['history'][3]['p']:.4f}, f(p4) = {res_multi['history'][3]['f_p']:.4f} -> converges towards root 0.25")
 
     # -------------------------------------------------------------------------
     # Test Case (v): Convergence Plot Generation
@@ -401,3 +441,10 @@ if __name__ == "__main__":
     print("\n" + "=" * 30 + " TEST CASE (v) " + "=" * 30)
     plot_convergence(res1)
     print("All test cases completed successfully.")
+<<<<<<< Updated upstream
+=======
+
+        
+
+
+>>>>>>> Stashed changes
