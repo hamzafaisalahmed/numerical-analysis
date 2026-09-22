@@ -2,8 +2,8 @@
 
 **Name:** 
 Hamza Faisal
-Burhanuding Patanwalla
-Hussam Zubair
+Burhanuddin Patanwala
+Muhammad Hussam Zubair
 Sarmad Ansari
 Mujtaba Zaidi
 
@@ -185,3 +185,5 @@ _Design choice:_ Exhausting iterations is an algorithm status, not invalid usage
 > actually did, e.g. what you asked an AI tool to do (review code against the spec,
 > explain what the report should contain, ...), what it did NOT do, and which
 > suggestions you applied. Be accurate — this section is graded on honesty.
+
+AI tools were used strictly as programming and syntax assistants to aid with NumPy operations, console string formatting, and Matplotlib plotting setup for the convergence graphs. All AI-suggested syntax snippets were manually tested and adapted to fit the assignment requirements.
