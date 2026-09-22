@@ -23,7 +23,7 @@ We only really implemented error handling only when our scripts ran into preset 
 We define invalid user inputs as inputs where the function becomes undefined or unexecutable
 
 - The following are types of errors we have in our scripts:
-  - A `TypeError` is raised when the objective function $f$ is not callable
+  - A `TypeError` is raised when the objective function $f$ is not callable (bisection) or if the expression cannot be converted into a sympy expression (taylor series)
   - A `ValueError` is raised when interval boundaries violate $a < b$, numerical parameters are invalid ($\text{tol} \le 0$ or $\text{max\_iter} \le 0$ )
 - There are situations where we dont have an error such as:
   - **exhausting `max_iter` without meeting the convergence tolerance does NOT raise an exception**; instead, `bisection()` returns normally with `"converged": False`, the latest midpoint $p_n$, an explanatory `"reason"`, and the iteration history.

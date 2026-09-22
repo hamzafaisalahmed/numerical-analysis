@@ -33,9 +33,12 @@ def taylor_series(expr, point, n, var=None):
 
     Raises
     ------
+    TypeError
+        If expr cannot be converted to a valid SymPy expression or is not a SymPy Expr instance.
     ValueError
-        If n < 0, if 'var' cannot be inferred, or if 'expr' is not
-        n+1 times differentiable at a symbolic level.
+        If n < 0 , if 'var' cannot be inferred , or if 'expr' is not n+1 times differentiable at a symbolic level 
+        (e.g. sympy cannot compute the derivative ).
+
 
     Example
     -------
