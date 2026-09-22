@@ -175,6 +175,30 @@ def bisection(
 
 
 def plot_convergence(result):
+    """
+    Plots the number of iterations against the interval widths on a log scale.
+
+    Parameters
+    ----------
+    result : dict
+        The dictionary returned by the bisection function, containing the iteration history log.
+
+    Returns
+    -------
+    None
+        Saves the resulting plot as 'bisection_convergence.png' to the current directory.
+
+    Raises
+    ------
+    ValueError
+        If the history list in the result dictionary is empty.
+    Example
+    -------
+    >>> f1 = lambda x: x**3 - x - 2
+    >>> res1 = bisection(f1, 1.0, 2.0, tol=1e-6)
+    >>> plot_convergence(res1)
+    """
+
     history = result.get("history", [])
 
     # edge case
@@ -222,20 +246,105 @@ def plot_convergence(result):
 
 # helper functions for the different error checking techniques
 def interval(a, b):
+    """
+    Computes the width of the interval [a, b].
+
+    Parameters
+    ----------
+    a : float
+        The lower bound.
+    b : float
+        The upper bound.
+
+    Returns
+    -------
+    float
+        The interval width (b - a).
+    Example
+    -------
+    >>> interval(1.0, 3.5)
+    2.5
+    """
     return b - a
 
 
 def Residual(f, pn):
+    """
+    Computes the absolute residual value of the function at point pn.
+
+    Parameters
+    ----------
+    f : callable
+        The objective function.
+    pn : float
+        The point at which to evaluate the residual.
+
+    Returns
+    -------
+    float
+        The absolute residual |f(pn)|.
+    Example
+    -------
+    >>> import sympy as sp
+    >>> x = sp.symbols('x')
+    >>> expr = x**2 - 2
+    >>> f = sp.lambdify(x, expr, 'numpy')
+    >>> Residual(f, 1.5)
+    0.25
+    """
     return abs(f(pn))
 
 
 def Absolute_error(p_curr, p_prev):
+    """
+    Computes the absolute error between consecutive approximations.
+
+    Parameters
+    ----------
+    p_curr : float
+        The current approximation.
+    p_prev : float or None
+        The previous approximation.
+
+    Returns
+    -------
+    float or None
+        The absolute difference |p_curr - p_prev|, or None if p_prev is None (first iteration).
+    Example
+    -------
+    >>> p_prev, p_curr = 1.0, 1.5
+    >>> Absolute_error(p_curr, p_prev)
+    0.5
+    """
     if p_prev is None:
         return None
     return abs(p_curr - p_prev)
 
 
 def Relative_error(p_curr, p_prev, eps=1e-12):
+    """
+    Computes the relative error between consecutive approximations with a zero-denominator safeguard.
+
+    Parameters
+    ----------
+    p_curr : float
+        The current approximation.
+    p_prev : float or None
+        The previous approximation.
+    eps : float, optional
+        Threshold for near-zero denominators (default: 1e-12).
+
+    Returns
+    -------
+    float or None
+        The relative error, absolute difference if denominator is near zero, or None if p_prev is None.
+
+    Example
+    -------
+    >>> p_prev, p_curr = 1.0, 1.5
+    >>> Relative_error(p_curr, p_prev)
+    0.3333333333333333
+    """
     if p_prev is None:
         return None
 
@@ -248,8 +357,32 @@ def Relative_error(p_curr, p_prev, eps=1e-12):
 
 def ErorChecker(error_type, tol, interval_w, residual, abs_err, rel_err):
     """
-    Evaluates whether the active error_type criterion is satisfied.
-    Returns (converged: bool, reason: str).
+    Evaluates whether the specified stopping criterion has been satisfied.
+
+    Parameters
+    ----------
+    error_type : str
+        The active stopping criterion ('absolute', 'relative', 'residual', 'interval', or 'all').
+    tol : float
+        The target tolerance.
+    interval_w : float
+        Current interval width.
+    residual : float
+        Current function residual.
+    abs_err : float or None
+        Current absolute error.
+    rel_err : float or None
+        Current relative error.
+
+    Returns
+    -------
+    tuple[bool, str]
+        A boolean indicating whether convergence was achieved, and a description string of the reason.
+
+    Example
+    -------
+    >>> ErorChecker("interval", 1e-6, 5e-7, 0.1, 0.05, 0.03)
+    (True, 'Interval width (5.00e-07) < tol (1.00e-06)')
     """
 
     has_prev = (

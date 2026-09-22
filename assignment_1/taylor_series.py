@@ -42,9 +42,11 @@ def taylor_series(expr, point, n, var=None):
 
     Example
     -------
-    import sympy as sp
-    x = sp.Symbol('x')
-    print(taylor_series(sp.exp(x), 0, 2))
+    >>> import sympy as sp
+    >>> x = sp.Symbol('x')
+    >>> result = taylor_series(sp.exp(x), 0, 2)
+    >>> result["polynomial"]
+    x**2/2 + x + 1
     """
 
     expr = sp.sympify(expr)
@@ -108,10 +110,11 @@ def find_var(expr):
         If 'expr' has zero or more than one free symbol.
     Example
     -------
-    import sympy as sp
-    x = sp.Symbol('x')
-    expr = sp.exp(x) + sp.sin(x)
-    print(find_var(expr))  # Output: x
+    >>> import sympy as sp
+    >>> x = sp.Symbol('x')
+    >>> expr = sp.exp(x) + sp.sin(x)
+    >>> find_var(expr)
+    x
     """
     variables = expr.free_symbols
     if len(variables) == 0:
@@ -149,7 +152,8 @@ def evaluate_and_compare(expr, point, n, x_eval, var=None):
 
     Example
     -------
-    print(evaluate_and_compare('exp(x)', 0, 3, 0.5))
+    >>> evaluate_and_compare('exp(x)', 0, 3, 0.5)
+    {'approx': 1.64583333333333, 'true_value': 1.64872127070013, 'abs_error': 0.00288793736679493, 'rel_error': 0.00175162255629090}
     """
 
     if type(expr) == str:
@@ -200,9 +204,9 @@ def plot_taylor_approximations(expr, point, orders, x_range, var=None):
 
     Example
     -------
-    import sympy as sp
-    x = sp.Symbol('x')
-    plot_taylor_approximations(sp.cos(x), 0, [1, 2, 4, 6], [-6.28, 6.28])
+    >>> import sympy as sp
+    >>> x = sp.Symbol('x')
+    >>> plot_taylor_approximations(sp.cos(x), 0, [1, 2, 4, 6], [-6.28, 6.28])
     """
 
     if type(expr) == str:
