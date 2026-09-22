@@ -186,4 +186,4 @@ _Design choice:_ Exhausting iterations is an algorithm status, not invalid usage
 > explain what the report should contain, ...), what it did NOT do, and which
 > suggestions you applied. Be accurate — this section is graded on honesty.
 
-AI tools were used strictly as programming and syntax assistants to aid with NumPy operations, console string formatting, and Matplotlib plotting setup for the convergence graphs. All AI-suggested syntax snippets were manually tested and adapted to fit the assignment requirements.
+AI tools were used strictly as programming and syntax assistants to aid with NumPy operations, console string formatting, Matplotlib plotting boilerplate, and drafting test cases to evaluate edge conditions. The numerical implementations, and relative-error safeguards were all done without the help of AI. All AI-suggested syntax snippets were manually tested and adapted to fit the assignment requirements.
