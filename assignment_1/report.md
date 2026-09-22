@@ -1,11 +1,11 @@
 # Numerical Analysis Assignment 1 — Report
 
-**Name:** 
-Hamza Faisal
-Burhanuddin Patanwala
-Muhammad Hussam Zubair
-Sarmad Ansari
-Mujtaba Zaidi
+**Name:**
+Hamza Faisal Ahmed 32406
+Burhanuddin Patanwala 32400
+Muhammad Hussam Zubair 32416
+Sarmad Ansari 32415
+Mujtaba Zaidi 32436
 
 ---
 
@@ -21,11 +21,13 @@ we basically wrote two scripts to test and experiment with taylors series and th
 
 We only really implemented error handling only when our scripts ran into preset violations or invalid user inputs
 We define invalid user inputs as inputs where the function becomes undefined or unexecutable
+
 - The following are types of errors we have in our scripts:
-	- A `TypeError` is raised when the objective function $f$ is not callable
-	- A `ValueError` is raised when interval boundaries violate $a < b$, numerical parameters are invalid ($\text{tol} \le 0$ or $\text{max\_iter} \le 0$ )
-- There are situations where we dont have an error such as: 
-	- **exhausting `max_iter` without meeting the convergence tolerance does NOT raise an exception**; instead, `bisection()` returns normally with `"converged": False`, the latest midpoint $p_n$, an explanatory `"reason"`, and the iteration history.
+  - A `TypeError` is raised when the objective function $f$ is not callable
+  - A `ValueError` is raised when interval boundaries violate $a < b$, numerical parameters are invalid ($\text{tol} \le 0$ or $\text{max\_iter} \le 0$ )
+- There are situations where we dont have an error such as:
+  - **exhausting `max_iter` without meeting the convergence tolerance does NOT raise an exception**; instead, `bisection()` returns normally with `"converged": False`, the latest midpoint $p_n$, an explanatory `"reason"`, and the iteration history.
+
 ### 2.2 Relative-error safeguard (bisection)
 
 The standard relative error formula:
@@ -37,11 +39,12 @@ breaks down when the true root is at or near zero ($p_n \approx 0$). As our deno
 The function checks how big the current point is compared to that threshold. When it drops below 1e-12 it just switches to the plain absolute difference instead of trying the relative version. That stops weird non convergence near the origin without changing how the error behaves everywhere else.
 
 We picked 1e-12 because it sits above machine precision which is around 2e-16 so only the really tiny cases trigger it. I think the exact value is kind of arbitrary though and maybe another number close to it would have worked the same. It seems safe enough for what they needed.
+
 ### 2.3 How taylor_series works
 
-Inside the taylor series function the loop runs through each order from zero up to $n$. For every step it grabs the $k^{th}$ derivative and then substitutes the expansion point right into that result. After dividing by the factorial it multiplies by the power term and adds everything to the running polynomial. 
+Inside the taylor series function the loop runs through each order from zero up to $n$. For every step it grabs the $k^{th}$ derivative and then substitutes the expansion point right into that result. After dividing by the factorial it multiplies by the power term and adds everything to the running polynomial.
 
-The lagrange remainder gets built by taking the next derivative and evaluating it at a fresh unevaluated $x_i$ symbol. The expression comes back without any simplification applied. 
+The lagrange remainder gets built by taking the next derivative and evaluating it at a fresh unevaluated $x_i$ symbol. The expression comes back without any simplification applied.
 $$
 Rn​(x)= \frac{f(n+1)(ξ)}{(n+1)!}​(x−x0​)^{n+1}
 $$
@@ -71,8 +74,9 @@ All even-order terms vanish because $\sin(x)$ is an odd function, meaning all of
 - $\ln(1.2) = 0.182321556793955$
 - **Absolute error:** $0.0000548901272879598$
 - **Relative error:** $0.000301062190632742$
-    
+
 This is an accurate approximation (relative error $\approx 0.03\%$) because $x = 1.2$ lies very close to the center of expansion $x_0 = 1$ and well inside the interval of convergence $(0, 2]$.
+
 ### (iv) 1/(1-x) about 0, n = 5
 
 | x   | P_5(x)             | true value          | absolute error     | relative error      |
@@ -91,20 +95,21 @@ This is an accurate approximation (relative error $\approx 0.03\%$) because $x =
 
 - **Radius of Convergence:** The geometric series $\frac{1}{1-x} = \sum_{k=0}^{\infty} x^k$ has a radius of convergence $R = 1$ (convergence interval $(-1, 1)$), dictated by the singular pole at $x = 1$.
 - **Inside vs. Outside:** $x = 0.9$ lies inside the radius of convergence ($\vert{}0.9\vert{} < 1$), whereas $x = 1.5$ lies strictly outside ($\vert{}1.5\vert{} > 1$).
-- **Behavior as $n$ Grows:** For $x = 0.9$, the error eventually contracts toward zero as $n \to \infty$, whereas for $x = 1.5$, the partial sums diverge wildly to $+\infty$, leading to catastrophic errors.    
+- **Behavior as $n$ Grows:** For $x = 0.9$, the error eventually contracts toward zero as $n \to \infty$, whereas for $x = 1.5$, the partial sums diverge wildly to $+\infty$, leading to catastrophic errors.
 - **Convergence Near the Boundary:** At $n = 5$, the error at $x = 0.9$ is over $53\%$, which is demonstrably poor. Because $x = 0.9$ is right near the boundary $R = 1$, the ratio term $x^{n+1} = 0.9^{n+1}$ decays slowly, proving that proximity to the boundary severely impairs the convergence rate of Taylor polynomials.
 
 ### (v) Edge cases
 
-| Invalid call                | Exception raised | Message                                                                    |
-| --------------------------- | ---------------- | -------------------------------------------------------------------------- |
-| n = -1 / non-integer n      | ValueError       | n must be a positive integer                                               |
-| expr with no free symbols   | ValueError       | 0 or > 1 free symbols                                                      |
-| expr with 2 symbols, no var | ValueError       | 0 or > 1 free symbols                                                      |
+| Invalid call                | Exception raised | Message                                                                     |
+| --------------------------- | ---------------- | --------------------------------------------------------------------------- |
+| n = -1 / non-integer n      | ValueError       | n must be a non negative integer                                            |
+| expr with no free symbols   | ValueError       | unable to infer variable: 0 free symbols                                    |
+| expr with 2 symbols, no var | ValueError       | unable to infer variable: > 1 free symbols                                  |
 | Abs(x) at 0                 | ValueError       | derivative not defined at 0 for n = 1, function is not differentiable at 0 |
-| sqrt(x) at 0                | ValueError       | derivative not defined at 0 for n = 1, limit goes to infinity              |
+| sqrt(x) at 0                | ValueError       | derivative not defined at 0 for n = 1, limit goes to infinity               |
 
 For $n = 0$, the function evaluates only the constant zeroth-order term $f(x_0)$ (e.g., returning $4$ for $x^2$ at $x_0 = 2$). When given a symbolic expansion point $x_0$, the function handles it symbolically without error, yielding $\ln(x_0) + \frac{x - x_0}{x_0}$ for $\ln(x)$.
+
 ### (vi) cos(x) plot
 
 ![Taylor approximations of cos(x)](taylor_plot.png)
@@ -120,8 +125,9 @@ Each Taylor polynomial $P_n(x)$ matches $\cos(x)$ around the expansion center $x
 - **Root:** $1.5213799476623535$
 - **Actual Iterations:** $21$
 - **A Priori Iterations:** $20$ ($\lceil \log_2((2 - 1)/10^{-6}) \rceil = 20$)
-    
+
 #### **Why they differ by 1:**
+
 $N = \lceil \log_2((b-a)/\text{tol}) \rceil = 20$ measures required halvings. The code checks `interval_w < tol` at the start of the loop _before_ halving for that step, requiring one extra check ($n = 21$) to register the halved width below $10^{-6}$.
 
 ### (ii) Comparison of stopping criteria (tol = 1e-6)
@@ -133,10 +139,11 @@ $N = \lceil \log_2((b-a)/\text{tol}) \rceil = 20$ measures required halvings. Th
 | interval  | 21         | $1.52137995$ |
 | residual  | 22         | $1.52137971$ |
 | all       | 22         | $1.52137971$ |
+
 - Step vs. Width: $\vert{}p_n - p_{n-1}\vert{} = w_n / 2$, so displacement tests reach tolerance one iteration before interval width.
 - Residual: Near the root, $\vert{}f(p)\vert{} \approx \vert{}f'(\alpha)\vert{} \cdot \vert{}p - \alpha\vert{} \approx 5.94 \cdot \vert{}p - \alpha\vert{}$. The slope amplifies error, making residual stricter and slower.
 - "All": Bottlenecks at the slowest criterion (residual).
-- A Priori Accuracy: Derived for interval width, it under-predicts when the slope $\vert{}f'\vert{} > 1$ (20 vs 22 for residual).   
+- A Priori Accuracy: Derived for interval width, it under-predicts when the slope $\vert{}f'\vert{} > 1$ (20 vs 22 for residual).
 
 ### (iii) Failure modes
 
@@ -159,6 +166,7 @@ _Design choice:_ Exhausting iterations is an algorithm status, not invalid usage
 - **On $[0, 1]$:** $f(0) = 0$ short-circuits at iteration 0, returning $0.0$ immediately.
 - **Bracket $[0.1, 0.9]$:** Valid because $f(0.1) \approx 0.95 > 0$ and $f(0.9) \approx -0.95 < 0$. Contains roots at $0.25, 0.5, 0.75$ and converges to **$0.25$**.
 - **Trace:** $p_1 = 0.5$ ($f=0$, shifts $a \leftarrow 0.5$) $\to$ $p_2 = 0.3$ ($f < 0$, shifts $b \leftarrow 0.3$) $\to$ $p_3 = 0.2$ ($f > 0$, shifts $a \leftarrow 0.2$) $\to$ contracts to $0.25$.
+
 ### (v) Convergence plot
 
 ![Bisection convergence](bisection_convergence.png)
@@ -166,6 +174,7 @@ _Design choice:_ Exhausting iterations is an algorithm status, not invalid usage
 - **Match:** Empirical matches the theoretical $w_1 (1/2)^{n-1}$ line exactly.
 - **Slope:** $\log_{10}(0.5) \approx -0.301$ decades/iteration.
 - **Exactness:** Bisection divides the interval in half by construction every step, independent of the function.
+
 ---
 
 ## 5. Known limitations
@@ -181,9 +190,4 @@ _Design choice:_ Exhausting iterations is an algorithm status, not invalid usage
 
 ## 6. AI use disclosure
 
-> TODO: The assignment requires detail on extent and purpose. State plainly what you
-> actually did, e.g. what you asked an AI tool to do (review code against the spec,
-> explain what the report should contain, ...), what it did NOT do, and which
-> suggestions you applied. Be accurate — this section is graded on honesty.
-
-AI tools were used strictly as programming and syntax assistants to aid with NumPy operations, console string formatting, and Matplotlib plotting setup for the convergence graphs. All AI-suggested syntax snippets were manually tested and adapted to fit the assignment requirements.
+AI tools were used strictly as syntax assistants to aid with NumPy and SymPy operations, console string formatting, and Matplotlib plotting setup for the convergence graphs. An iterative process was followed, where we tried to implement the core logic using our knowledge, and had AI give suggestions regarding where syntax improvements could be made and whether edge cases were handled sufficiently. AI feedback was only implemented if absolutely necessary, and core implementation was done independently using the formulae provided in the question/methods taught in class.

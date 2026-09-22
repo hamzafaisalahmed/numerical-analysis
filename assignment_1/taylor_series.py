@@ -46,11 +46,11 @@ def taylor_series(expr, point, n, var=None):
 
     expr = sp.sympify(expr)
     if not isinstance(expr, sp.Expr):
-        raise TypeError("expr must be a sympy expression")
+        raise TypeError("expr must be a valid sympy expression")
     if var is None:
         var = find_var(expr)
     if not isinstance(n, int) or n < 0:
-        raise ValueError("n must be a positive integer")
+        raise ValueError("n must be a non negative integer")
 
     return_expr = 0
     return_data = {
@@ -75,7 +75,7 @@ def taylor_series(expr, point, n, var=None):
         term = derivative / sp.factorial(i) * (var - point) ** (i)
         return_expr += term
         return_data["terms"].append(term)
-    return_data["polynomial"] = return_expr
+    return_data["polynomial"] = sp.expand(return_expr)
     return_data["latex"] = sp.latex(return_expr)
 
     xi = sp.symbols("xi")
@@ -111,8 +111,10 @@ def find_var(expr):
     print(find_var(expr))  # Output: x
     """
     variables = expr.free_symbols
-    if len(variables) != 1:
-        raise ValueError("0 or > 1 free symbols")
+    if len(variables) == 0:
+        raise ValueError("unable to infer variable: 0 free symbols")
+    if len(variables) > 1:
+        raise ValueError("unable to infer variable: > 1 free symbols")
     return next(iter(variables))
 
 
