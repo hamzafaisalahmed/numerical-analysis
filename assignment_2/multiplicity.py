@@ -1,30 +1,9 @@
-"""
-Problem 3: Multiplicity Detection and the Modified Newton's Method.
-
-This module provides tools for detecting multiple roots of nonlinear equations,
-estimating root multiplicity from linear convergence ratios, and automatically
-switching from ordinary Newton's method to Modified Newton's method to restore
-quadratic convergence.
-
-It directly imports and builds upon the existing Question 1 (fixed_point.py)
-and Question 2 (newton.py) implementations.
-"""
-
 from typing import Callable, Dict, Any, List, Optional, Union
 import math
 import os
 import sys
 from pathlib import Path
 import numpy as np
-
-current_dir = Path(__file__).resolve().parent
-git_assign2_dir = current_dir / "git" / "numerical-analysis" / "assignment_2"
-if git_assign2_dir.exists() and str(git_assign2_dir) not in sys.path:
-    sys.path.insert(0, str(git_assign2_dir))
-if str(current_dir) not in sys.path:
-    sys.path.insert(0, str(current_dir))
-
-# Import existing Q1 and Q2 functions
 from fixed_point import estimate_order
 from newton import newton
 
