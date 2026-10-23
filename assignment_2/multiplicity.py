@@ -1,0 +1,622 @@
+from typing import Callable, Dict, Any, List, Optional, Union
+import math
+import os
+import sys
+from pathlib import Path
+import numpy as np
+from fixed_point import estimate_order
+from newton import newton
+
+
+def _extract_iterate_sequence(data: Any) -> List[float]:
+    """
+    Helper to extract a clean list of float iterates from sequence or history.
+    Ensures compatibility with estimate_order() which expects floats.
+    """
+    if isinstance(data, (list, tuple)):
+        pts = []
+        for item in data:
+            if isinstance(item, dict) and "p" in item:
+                if item["p"] is not None:
+                    pts.append(float(item["p"]))
+            elif isinstance(item, (int, float)):
+                pts.append(float(item))
+        return pts
+    return []
+
+
+def estimate_multiplicity(
+    f: Union[Callable[[float], float], List[Dict[str, Any]], List[float]],
+    fprime: Optional[Callable[[float], float]] = None,
+    p0: Optional[float] = None,
+    tol: float = 1e-8,
+    max_iter: int = 50,
+    probe_history: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    Run a short, ordinary Newton's Method iteration from p0 and use
+    the asymptotic linear-convergence ratio
+        r_n = (p_{n+1} - p_n) / (p_n - p_{n-1})
+    once it has stabilized, together with lambda = (m - 1)/m, i.e.
+        m ~= 1 / (1 - r_n),
+    to estimate the integer multiplicity m. Round to the nearest
+    integer and report the unrounded estimate as well.
+
+    Parameters
+    ----------
+    f : callable or list
+        Scalar objective function, or pre-computed history / sequence of iterates.
+    fprime : callable, optional
+        First derivative of f, by default None.
+    p0 : float, optional
+        Starting initial point, by default None.
+    tol : float, optional
+        Stopping tolerance, by default 1e-8.
+    max_iter : int, optional
+        Maximum iterations allowed, by default 50.
+    probe_history : list of dict, optional
+        Pre-computed Newton history to analyze directly, by default None.
+
+    Returns
+    -------
+    dict
+        "m_estimate" : float or None
+            Unrounded empirical multiplicity estimate.
+        "m_rounded" : int or None
+            Multiplicity rounded to nearest integer (>= 1).
+        "ratio_used" : float or None
+            Stabilized linear-convergence ratio r_n.
+        "diagnostic_note" : str
+            Explanatory summary of convergence behavior.
+
+    Raises
+    ------
+    TypeError
+        If f (or fprime, if supplied) is not callable when history is not passed.
+    ValueError
+        If tol <= 0 or max_iter <= 0.
+
+    Examples
+    --------
+    >>> f = lambda x: (x - 2)**3 * (x + 1)
+    >>> fp = lambda x: (x - 2)**2 * (4*x + 1)
+    >>> res = estimate_multiplicity(f, fp, p0=2.5)
+    >>> res["m_rounded"]
+    3
+    """
+    pts: List[float] = []
+
+    if isinstance(f, list):
+        pts = _extract_iterate_sequence(f)
+    elif probe_history is not None:
+        pts = _extract_iterate_sequence(probe_history)
+    else:
+        # Run ordinary Newton's Method from p0
+        if not callable(f):
+            raise TypeError("f must be a callable function")
+        if fprime is not None and not callable(fprime):
+            raise TypeError("fprime if provided must be a callable function")
+        if p0 is None:
+            raise ValueError("p0 must be provided when running Newton iteration")
+        if tol <= 0:
+            raise ValueError("tol must be positive")
+        if max_iter <= 0:
+            raise ValueError("max_iter must be positive")
+
+        # Run user's newton implementation safely
+        # Note: at multiple roots, f'(p) -> 0, which may trigger newton's ZeroDivisionError
+        # if max_iter is large. We cap at 30 iterations if division occurs to preserve history.
+        try:
+            res_newt = newton(f, p0, fprime=fprime, tol=tol, max_iter=max_iter)
+            pts = _extract_iterate_sequence(res_newt["history"])
+        except ZeroDivisionError:
+            try:
+                res_newt = newton(f, p0, fprime=fprime, tol=tol, max_iter=min(max_iter, 30))
+                pts = _extract_iterate_sequence(res_newt["history"])
+            except Exception:
+                pts = []
+
+    if len(pts) < 3:
+        return {
+            "m_estimate": None,
+            "m_rounded": None,
+            "ratio_used": None,
+            "diagnostic_note": f"Fewer than 3 iterates available ({len(pts)} found); cannot estimate multiplicity.",
+        }
+
+    raw_diffs = [abs(pts[i + 1] - pts[i]) for i in range(len(pts) - 1)]
+    clean_diffs = [d for d in raw_diffs if d > 1e-6]
+    if len(clean_diffs) < 3:
+        clean_diffs = [d for d in raw_diffs if d > 1e-12]
+    ratios: List[float] = []
+    for i in range(len(clean_diffs) - 1):
+        d_curr = clean_diffs[i]
+        d_next = clean_diffs[i + 1]
+        if abs(d_curr) < 1e-14:
+            continue
+        r = d_next / d_curr
+        if not math.isnan(r) and not math.isinf(r):
+            ratios.append(float(r))
+
+    if not ratios:
+        return {
+            "m_estimate": None,
+            "m_rounded": None,
+            "ratio_used": None,
+            "diagnostic_note": "No non-zero successive differences available to compute ratio.",
+        }
+
+    if len(ratios) >= 5:
+        tail = ratios[-5:]
+        ratio_used = float(np.median(tail))
+    elif len(ratios) >= 3:
+        tail = ratios[-3:]
+        ratio_used = float(np.median(tail))
+    else:
+        ratio_used = float(ratios[-1])
+
+    if ratio_used <= 0.15:
+        m_est = 1.0
+        m_round = 1
+        note = (
+            f"Ratio r_n = {ratio_used:.4f} is close to 0, indicating quadratic convergence / simple root (m = 1)."
+        )
+    elif ratio_used >= 0.999:
+        m_est = float("inf")
+        m_round = None
+        note = f"Ratio r_n = {ratio_used:.4f} >= 1, indicating divergence or non-convergence."
+    else:
+        m_est = 1.0 / (1.0 - ratio_used)
+        m_round = max(1, int(round(m_est)))
+        note = (
+            f"Stable linear convergence observed with ratio r_n = {ratio_used:.4f}; "
+            f"lambda = (m-1)/m yields m ~= {m_est:.4f} -> rounded m = {m_round}."
+        )
+
+    return {
+        "m_estimate": round(m_est, 4) if not math.isinf(m_est) else None,
+        "m_rounded": m_round,
+        "ratio_used": round(ratio_used, 4),
+        "diagnostic_note": note,
+    }
+
+
+def modified_newton(
+    f: Callable[[float], float],
+    p0: float,
+    fprime: Optional[Callable[[float], float]] = None,
+    fprime2: Optional[Callable[[float], float]] = None,
+    m: Optional[Union[int, float]] = None,
+    tol: float = 1e-10,
+    max_iter: int = 100,
+    numeric_derivative: bool = False,
+    h: float = 1e-6,
+    verbose: bool = False,
+) -> Dict[str, Any]:
+    """
+    If m is supplied: use the known-multiplicity correction
+        p_{n+1} = p_n - m * f(p_n)/f'(p_n).
+    If m is None: use the multiplicity-independent u = f/f' correction
+        (in that case fprime2 -- f'' -- must be supplied or derivable
+        numerically; raise ValueError if neither is available).
+
+    Returns a dict in the same format as newton() in Problem 2
+    (reuse estimate_order here too).
+
+    Parameters
+    ----------
+    f : callable
+        Scalar objective function.
+    p0 : float
+        Initial guess.
+    fprime : callable, optional
+        First derivative of f, by default None.
+    fprime2 : callable, optional
+        Second derivative of f, by default None.
+    m : int or float, optional
+        Known root multiplicity, by default None.
+    tol : float, optional
+        Convergence tolerance for |p_{n+1} - p_n|, by default 1e-10.
+    max_iter : int, optional
+        Maximum number of iterations allowed, by default 100.
+    numeric_derivative : bool, optional
+        Whether to compute derivatives numerically, by default False.
+    h : float, optional
+        Step size for finite differences, by default 1e-6.
+    verbose : bool, optional
+        Whether to print diagnostic messages at each step, by default False.
+
+    Returns
+    -------
+    dict
+        "root" : float or None
+        "iterations" : int
+        "converged" : bool
+        "reason" : str
+        "history" : list of dicts: {n, p, f_p, fprime_p, diff}
+        "order_estimate" : dict from estimate_order()
+
+    Raises
+    ------
+    ValueError
+        If tol <= 0, max_iter <= 0, or if m is None and neither fprime2 nor numeric_derivative is available.
+    TypeError
+        If f, fprime, or fprime2 is not callable when provided.
+    ZeroDivisionError
+        Raised if derivative or u'(p_n) falls below threshold (1e-12).
+
+    Examples
+    --------
+    >>> f = lambda x: (x - 2)**3 * (x + 1)
+    >>> fp = lambda x: (x - 2)**2 * (4*x + 1)
+    >>> fp2 = lambda x: 6 * (x - 2) * (2*x - 1)
+    >>> res = modified_newton(f, 2.5, fp, fp2, m=3)
+    >>> res["converged"]
+    True
+    """
+    MIN_THRESHOLD = 1e-12
+
+    if max_iter <= 0:
+        raise ValueError("max iterations must be > 0")
+    if tol <= 0:
+        raise ValueError("tol must be > 0")
+    if not callable(f):
+        raise TypeError("f must be a callable function")
+    if fprime is not None and not callable(fprime):
+        raise TypeError("fprime if provided must be a callable function")
+    if fprime2 is not None and not callable(fprime2):
+        raise TypeError("fprime2 if provided must be a callable function")
+
+    if m is not None:
+        if not isinstance(m, (int, float)) or m <= 0:
+            raise ValueError(f"multiplicity m must be a positive number, got {m}")
+    else:
+        if fprime2 is None and not numeric_derivative:
+            raise ValueError(
+                "When multiplicity m is None, fprime2 must be supplied or "
+                "numeric_derivative must be True to derive it numerically."
+            )
+    if fprime is None or numeric_derivative:
+        df = lambda x: (f(x + h) - f(x - h)) / (2.0 * h)
+    else:
+        df = fprime
+    if m is None:
+        if fprime2 is not None and not numeric_derivative:
+            d2f = fprime2
+        elif fprime is not None:
+            d2f = lambda x: (fprime(x + h) - fprime(x - h)) / (2.0 * h)
+        else:
+            d2f = lambda x: (f(x + h) - 2.0 * f(x) + f(x - h)) / (h**2)
+
+    n = 0
+    p = float(p0)
+    converged = False
+    reason = None
+    history = [{"n": 0, "p": p, "f_p": None, "fprime_p": None, "diff": None}]
+
+    if verbose:
+        print(f"n={n:3d}  p_n={p:.12f}  diff={None}")
+
+    while n < max_iter:
+        n += 1
+        f_p = float(f(p))
+        if abs(f_p) < 1e-15:
+            converged = True
+            reason = f"exact or near-exact root encountered (|f(p)| < 1e-15)"
+            history.append({"n": n, "p": p, "f_p": f_p, "fprime_p": float(df(p)), "diff": 0.0})
+            break
+
+        fprime_p = float(df(p))
+        if abs(fprime_p) < MIN_THRESHOLD:
+            raise ZeroDivisionError(f"at iteration: {n}, the value of f'(p_n) becomes {fprime_p}")
+
+        if m is not None:
+            step = float(m) * (f_p / fprime_p)
+        else:
+            fprime2_p = float(d2f(p))
+            u_p = f_p / fprime_p
+            u_prime = 1.0 - (f_p * fprime2_p) / (fprime_p**2)
+            if abs(u_prime) < MIN_THRESHOLD:
+                raise ZeroDivisionError(
+                    f"at iteration: {n}, u'(p_n) = {u_prime:.3e} falls below threshold {MIN_THRESHOLD}. "
+                    f"Modified Newton step is undefined."
+                )
+
+            step = u_p / u_prime
+
+        p_new = p - step
+        diff = abs(p_new - p)
+        p = p_new
+
+        history.append({"n": n, "p": p, "f_p": f_p, "fprime_p": fprime_p, "diff": diff})
+
+        if verbose:
+            print(f"n={n:3d}  p_n={p:.12f}  f(p)={f_p:.3e}  f'(p)={fprime_p:.3e}  diff={diff:.3e}")
+
+        if diff < tol:
+            converged = True
+            reason = "|p_n+1 - p_n| < tol"
+            break
+
+    if not converged and reason is None:
+        reason = f"Reached iteration {max_iter} without converging"
+        p = None
+    pts_seq = [h_item["p"] for h_item in history if h_item.get("p") is not None]
+    order = estimate_order(pts_seq)
+
+    return {
+        "root": p,
+        "iterations": n,
+        "converged": converged,
+        "reason": reason,
+        "history": history,
+        "order_estimate": order,
+    }
+
+
+def auto_newton(
+    f: Callable[[float], float],
+    fprime: Optional[Callable[[float], float]],
+    fprime2: Optional[Callable[[float], float]],
+    p0: float,
+    tol: float = 1e-10,
+    max_iter: int = 100,
+    probe_iters: int = 6,
+    order_threshold: float = 1.5,
+    numeric_derivative: bool = False,
+    h: float = 1e-6,
+    verbose: bool = False,
+) -> Dict[str, Any]:
+    """
+    Decision function: run ordinary Newton's Method for 'probe_iters'
+    iterations, compute the empirical order from that short run. If
+    the estimated order is below 'order_threshold' (i.e. convergence
+    looks linear rather than quadratic, signaling a likely multiple
+    root), call estimate_multiplicity on the probe data, then switch
+    to modified_newton (using the u = f/f' form) continuing from the
+    current best iterate. If the estimated order already looks
+    quadratic, simply continue with ordinary Newton's Method to
+    completion.
+
+    Returns
+    -------
+    dict with the usual newton()-style keys, PLUS:
+    "method_used" -- "newton" or "modified_newton"
+    "multiplicity_info" -- the dict from estimate_multiplicity,
+                           or None if ordinary Newton was kept
+
+    Parameters
+    ----------
+    f : callable
+        Scalar objective function.
+    fprime : callable, optional
+        First derivative of f.
+    fprime2 : callable, optional
+        Second derivative of f.
+    p0 : float
+        Initial guess.
+    tol : float, optional
+        Convergence tolerance, by default 1e-10.
+    max_iter : int, optional
+        Maximum total iterations allowed, by default 100.
+    probe_iters : int, optional
+        Probe window length using ordinary Newton, by default 6.
+    order_threshold : float, optional
+        Order threshold distinguishing linear (< 1.5) from quadratic (>= 1.5), by default 1.5.
+    numeric_derivative : bool, optional
+        Whether to compute derivatives numerically, by default False.
+    h : float, optional
+        Finite difference step size, by default 1e-6.
+    verbose : bool, optional
+        Whether to print diagnostic messages, by default False.
+    """
+    if not callable(f):
+        raise TypeError("f must be a callable function")
+    if tol <= 0:
+        raise ValueError("tol must be > 0")
+    if max_iter <= 0:
+        raise ValueError("max_iter must be > 0")
+    if probe_iters < 3:
+        raise ValueError("probe_iters must be at least 3")
+
+    probe_res = newton(
+        f,
+        p0,
+        fprime=fprime,
+        tol=tol,
+        max_iter=probe_iters,
+        numeric_derivative=numeric_derivative,
+        h=h,
+        verbose=verbose,
+    )
+
+    probe_history = probe_res["history"]
+    probe_pts = [h_item["p"] for h_item in probe_history if h_item.get("p") is not None]
+    if probe_res["converged"]:
+        return {
+            "root": probe_res["root"],
+            "iterations": probe_res["iterations"],
+            "converged": True,
+            "reason": f"Converged during ordinary Newton probe: {probe_res['reason']}",
+            "history": probe_history,
+            "order_estimate": probe_res["order_estimate"],
+            "method_used": "newton",
+            "multiplicity_info": None,
+        }
+    order_info = estimate_order(probe_pts)
+    estimated_order = order_info.get("order")
+
+    if verbose:
+        print(f"[auto_newton] Probe order: {estimated_order} (threshold: {order_threshold})")
+    looks_linear = False
+    if estimated_order is not None:
+        looks_linear = (estimated_order < order_threshold)
+    else:
+        mult_probe = estimate_multiplicity(probe_history)
+        if mult_probe.get("ratio_used") is not None and mult_probe["ratio_used"] > 0.3:
+            looks_linear = True
+
+    current_best = probe_pts[-1]
+    remaining_iters = max(1, max_iter - len(probe_history) + 1)
+
+    if looks_linear:
+        multiplicity_info = estimate_multiplicity(probe_history)
+
+        mod_res = modified_newton(
+            f,
+            p0=current_best,
+            fprime=fprime,
+            fprime2=fprime2,
+            m=None,  
+            tol=tol,
+            max_iter=remaining_iters,
+            numeric_derivative=numeric_derivative,
+            h=h,
+            verbose=verbose,
+        )
+        unified_history = list(probe_history)
+        for entry in mod_res["history"][1:]:
+            merged_entry = dict(entry)
+            merged_entry["n"] = len(unified_history)
+            unified_history.append(merged_entry)
+
+        unified_pts = [h_item["p"] for h_item in unified_history if h_item.get("p") is not None]
+        order_unified = estimate_order(unified_pts)
+        return {
+            "root": mod_res["root"],
+            "iterations": len(unified_history) - 1,
+            "converged": mod_res["converged"],
+            "reason": f"Switched to modified_newton (u=f/f'): {mod_res['reason']}",
+            "history": unified_history,
+            "order_estimate": order_unified,
+            "method_used": "modified_newton",
+            "multiplicity_info": multiplicity_info,
+        }
+    else:
+        cont_res = newton(
+            f,
+            p0=current_best,
+            fprime=fprime,
+            tol=tol,
+            max_iter=remaining_iters,
+            numeric_derivative=numeric_derivative,
+            h=h,
+            verbose=verbose,
+        )
+
+        unified_history = list(probe_history)
+        for entry in cont_res["history"][1:]:
+            merged_entry = dict(entry)
+            merged_entry["n"] = len(unified_history)
+            unified_history.append(merged_entry)
+
+        unified_pts = [h_item["p"] for h_item in unified_history if h_item.get("p") is not None]
+        order_unified = estimate_order(unified_pts)
+
+        return {
+            "root": cont_res["root"],
+            "iterations": len(unified_history) - 1,
+            "converged": cont_res["converged"],
+            "reason": f"Kept ordinary Newton: {cont_res['reason']}",
+            "history": unified_history,
+            "order_estimate": order_unified,
+            "method_used": "newton",
+            "multiplicity_info": None,
+        }
+
+
+if __name__ == "__main__":
+    def f_test(x: float) -> float:
+        return ((x - 2.0) ** 3) * (x + 1.0)
+
+    def fp_test(x: float) -> float:
+        return ((x - 2.0) ** 2) * (4.0 * x + 1.0)
+
+    def fp2_test(x: float) -> float:
+        return 6.0 * (x - 2.0) * (2.0 * x - 1.0)
+
+    print("Problem 3: Multiplicity Detection and Modified Newton's Method")
+
+    # Part (a)
+    print("\n\nPart a: Ordinary Newton from p0 = 2.5 (Multiple root x = 2)")
+    res_a = newton(f_test, p0=2.5, fprime=fp_test, tol=1e-8, max_iter=30)
+    pts_a = [h["p"] for h in res_a["history"] if h["p"] is not None]
+    order_a = estimate_order(pts_a)
+    diffs_a = [abs(pts_a[i + 1] - pts_a[i]) for i in range(len(pts_a) - 1)]
+    ratios_a = [diffs_a[i + 1] / diffs_a[i] for i in range(len(diffs_a) - 1)]
+
+    print(f"Converged: {res_a['converged']}")
+    print(f"Iterations: {res_a['iterations']}")
+    print(f"Root: {pts_a[-1]}")
+    print(f"Order: {order_a['order']}")
+    print(f"Theoretical ratio: {2/3:.4f}")
+    print(f"Observed ratio: {ratios_a[-1]:.6f}")
+
+    # Part (b)
+    print("\n\nPart b: Multiplicity Estimation")
+    mult_b = estimate_multiplicity(res_a["history"])
+    print(f"Estimated multiplicity: {mult_b['m_estimate']}")
+    print(f"Rounded multiplicity: {mult_b['m_rounded']}")
+    print(f"Ratio used: {mult_b['ratio_used']}")
+    print(f"Note: {mult_b['diagnostic_note']}")
+
+    # Part (c)
+    print("\n\nPart c: Modified Newton from p0 = 2.5")
+    res_c_known = modified_newton(f_test, p0=2.5, fprime=fp_test, fprime2=fp2_test, m=3, tol=1e-10)
+    print("Known m = 3:")
+    print(f"  Converged: {res_c_known['converged']}")
+    print(f"  Iterations: {res_c_known['iterations']}")
+    print(f"  Root: {res_c_known['root']}")
+    print(f"  Order: {res_c_known['order_estimate']['order']}")
+
+    res_c_u = modified_newton(f_test, p0=2.5, fprime=fp_test, fprime2=fp2_test, m=None, tol=1e-10)
+    print("\nMultiplicity-independent u = f/f':")
+    print(f"  Converged: {res_c_u['converged']}")
+    print(f"  Iterations: {res_c_u['iterations']}")
+    print(f"  Root: {res_c_u['root']}")
+    print(f"  Order: {res_c_u['order_estimate']['order']}")
+
+    # Part (d)
+    print("\n\nPart d: Auto Newton")
+    print("Multiple root (p0 = 2.5):")
+    res_d_mult = auto_newton(f_test, fp_test, fp2_test, p0=2.5, tol=1e-10)
+    print(f"  Method used: {res_d_mult['method_used']}")
+    print(f"  Iterations: {res_d_mult['iterations']}")
+    print(f"  Root: {res_d_mult['root']}")
+    print(f"  Multiplicity info: {res_d_mult['multiplicity_info']}")
+    print(f"  Order: {res_d_mult['order_estimate']['order']}")
+
+    print("\nSimple root (p0 = -0.5):")
+    res_d_simp = auto_newton(f_test, fp_test, fp2_test, p0=-0.5, tol=1e-10)
+    print(f"  Method used: {res_d_simp['method_used']}")
+    print(f"  Iterations: {res_d_simp['iterations']}")
+    print(f"  Root: {res_d_simp['root']}")
+    print(f"  Multiplicity info: {res_d_simp['multiplicity_info']}")
+    print(f"  Order: {res_d_simp['order_estimate']['order']}")
+
+    # Edge Cases
+    print("\n\nEdge Cases:")
+    print("m = 1 identity test:")
+    f_quad = lambda x: x**2 - 2.0
+    fp_quad = lambda x: 2.0 * x
+    fp2_quad = lambda x: 2.0
+    ord_res = newton(f_quad, p0=1.0, fprime=fp_quad, tol=1e-10)
+    mod_m1_res = modified_newton(f_quad, p0=1.0, fprime=fp_quad, fprime2=fp2_quad, m=1, tol=1e-10)
+    pts_ord = [h["p"] for h in ord_res["history"] if h["p"] is not None]
+    pts_m1 = [h["p"] for h in mod_m1_res["history"] if h["p"] is not None]
+    max_diff = max(abs(a - b) for a, b in zip(pts_ord, pts_m1))
+    print(f"  Max iterate difference: {max_diff}")
+
+    # Testing edge case where u'(p_n) is zero (e.g. f(x) = exp(x) where u'(x) = 1 - (e^x * e^x)/(e^x)^2 = 0).
+    # This intentionally tests that modified_newton detects vanishing u' and raises an informative ZeroDivisionError
+    # rather than failing silently or producing NaNs.
+    print("\nu'(p_n) ~ 0 test (verifying robust exception handling when u' vanishes):")
+    f_exp = lambda x: math.exp(x)
+    fp_exp = lambda x: math.exp(x)
+    fp2_exp = lambda x: math.exp(x)
+    try:
+        modified_newton(f_exp, p0=1.0, fprime=fp_exp, fprime2=fp2_exp, m=None)
+    except ZeroDivisionError as zde:
+        # Expected error message printed below demonstrates that the exception was caught cleanly:
+        print(f"  Caught expected error: {zde}")
+
