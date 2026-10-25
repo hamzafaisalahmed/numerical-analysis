@@ -16,6 +16,15 @@ def estimate_order(sequence, true_value=None):
     -------
     dict
         {"order": float or None, "note": str}
+
+    Examples
+    --------
+    >>> p_values = [1.5, 1.3733333333333333, 1.3652620148746266, 1.3652300139161466, 1.3652300134140969]
+    >>> estimate_order(p_values)
+    {'order': 2.000355257429144, 'note': 'estimated successfully'}
+
+    >>> print(estimate_order(p_values,true_value=1.365230013))
+    {'order': 1.9685708725384397, 'note': 'estimated successfully'}
     """
 
     if len(sequence) < 3:
@@ -81,6 +90,19 @@ def fixed_point_iteration(g, p0, tol=1e-8, max_iter=100, verbose=False):
         "reason" : str
         "history" : list of dicts: {"n": n, "p": p, "diff": diff}
         "order_estimate" : dict
+
+    Raises
+    ------
+    ValueError -- tol <= 0, max_iter <= 0
+    TypeError -- g is not callable
+
+    Example
+    --------
+    >>> g = lambda x: math.sqrt(10 / (4 + x))
+    >>> result = fixed_point_iteration(g, 1.5)
+    >>> print(result["root"])
+     1.3652300135614253
+
     """
     if tol <= 0:
         raise ValueError("tol must be positive")
