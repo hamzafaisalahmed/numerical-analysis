@@ -1,8 +1,7 @@
 from math import cos, sin
 
+from fixed_point import estimate_order, fixed_point_iteration
 from multiplicity import auto_newton, estimate_multiplicity, modified_newton
-
-from fixed_point import fixed_point_iteration
 from newton import newton
 
 M = 1.0
@@ -120,20 +119,13 @@ def vdw_application():
 
     # (c) ordinary Newton: expect order -> 1 (error shrinks by ~2/3 per step)
     print(f"\n(c) Ordinary Newton from V0 = 1.2*Vc = {V0:.6f}")
-    # Short run for a clean order estimate: stop before rounding noise
-    # (~1e-6 in V) takes over. converged=False here is expected.
+
     res = newton(f, V0, fp, tol=1e-10, max_iter=25)
     _report("newton (25 iters)", res, Vc)
 
-    # Full run, to document what happens near the triple root
-    try:
-        full = newton(f, V0, fp, tol=1e-10)
-        print(
-            f"full run: converged={full['converged']}, iters={full['iterations']}, "
-            f"reason={full['reason']}"
-        )
-    except ZeroDivisionError as err:
-        print(f"full run raised ZeroDivisionError: {err}")
+    clean = estimate_order([h["p"] for h in res["history"][:21]])
+    clean_s = f"{clean['order']:.4f}" if clean["order"] is not None else "None"
+    print(f"order on first 20 iterates: {clean_s}")
 
     # (d) multiplicity estimate + modified Newton
     print("\n(d) Multiplicity detection and modified Newton")
