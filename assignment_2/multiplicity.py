@@ -33,7 +33,7 @@ def _extract_iterate_sequence(data: Any) -> List[float]:
     TypeError
         If data is not a list or tuple, or if an item in data (or value associated
         with key 'p') cannot be converted to float.
-        
+
     Examples
     --------
     >>> history = [{"n": 0, "p": 2.5}, {"n": 1, "p": 2.3409}]
@@ -438,6 +438,22 @@ def auto_newton(
         Finite difference step size, by default 1e-6.
     verbose : bool, optional
         Whether to print diagnostic messages, by default False.
+
+    Raises
+    ------
+    TypeError
+        If f is not callable.
+    ValueError
+        If tol <= 0, max_iter <= 0, or probe_iters < 3.
+    ZeroDivisionError
+        Propagated from newton() or modified_newton() if |f'(p_n)| or
+        |u'(p_n)| falls below 1e-12.
+
+    Examples
+    --------
+    >>> f = lambda x: (x - 2)**3 * (x + 1)
+    >>> auto_newton(f, lambda x: (x-2)**2*(4*x+1), lambda x: 6*(x-2)*(2*x-1), 2.5)["method_used"]
+    'modified_newton'
     """
     if not callable(f):
         raise TypeError("f must be a callable function")

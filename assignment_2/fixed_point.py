@@ -101,7 +101,7 @@ def fixed_point_iteration(g, p0, tol=1e-8, max_iter=100, verbose=False):
     >>> g = lambda x: math.sqrt(10 / (4 + x))
     >>> result = fixed_point_iteration(g, 1.5)
     >>> print(result["root"])
-     1.3652300135614253
+    1.3652300135614253
 
     """
     if tol <= 0:
