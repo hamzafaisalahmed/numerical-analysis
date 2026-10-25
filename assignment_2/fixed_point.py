@@ -1,5 +1,6 @@
 import math
 
+
 def estimate_order(sequence, true_value=None):
     """
     Estimate empirical order of convergence alpha from a sequence of iterates.
@@ -16,10 +17,10 @@ def estimate_order(sequence, true_value=None):
     dict
         {"order": float or None, "note": str}
     """
+
     if len(sequence) < 3:
         return {"order": None, "note": "Fewer than 3 points provided."}
 
-    
     pts = [float(x) for x in sequence]
 
     if true_value is not None:
@@ -27,9 +28,9 @@ def estimate_order(sequence, true_value=None):
         floor = 1e-7
     else:
         errors = [abs(pts[i + 1] - pts[i]) for i in range(len(pts) - 1)]
-        floor = 1e-12 
+        floor = 1e-12
 
-    clean_errors = [] #filter out errors
+    clean_errors = []  # filter out errors
     for e in errors:
         if e < floor or math.isnan(e) or math.isinf(e):
             break
@@ -52,6 +53,7 @@ def estimate_order(sequence, true_value=None):
 
     alpha = math.log(ratio2) / denom
     return {"order": alpha, "note": "estimated successfully"}
+
 
 def fixed_point_iteration(g, p0, tol=1e-8, max_iter=100, verbose=False):
     """
@@ -117,7 +119,7 @@ def fixed_point_iteration(g, p0, tol=1e-8, max_iter=100, verbose=False):
             reason = f"|p_{n}| exceeded 1e10 and diverged"
             break
 
-        if diff < tol: #check convergence
+        if diff < tol:  # check convergence
             converged = True
             root = p_next
             reason = f"Converged within tolerance in {n} iterations"
@@ -136,11 +138,8 @@ def fixed_point_iteration(g, p0, tol=1e-8, max_iter=100, verbose=False):
         "converged": converged,
         "reason": reason,
         "history": history,
-        "order_estimate": order_est
+        "order_estimate": order_est,
     }
-
-
-
 
 
 if __name__ == "__main__":
@@ -148,17 +147,19 @@ if __name__ == "__main__":
     true_root = 1.365230013
 
     test_cases = {
-        "g1(x) = x - x^3 - 4x^2 + 10": lambda x: x - x**3 - 4*x**2 + 10,
-        "g2(x) = sqrt(10/x - 4x)": lambda x: math.sqrt(10/x - 4*x),
+        "g1(x) = x - x^3 - 4x^2 + 10": lambda x: x - x**3 - 4 * x**2 + 10,
+        "g2(x) = sqrt(10/x - 4x)": lambda x: math.sqrt(10 / x - 4 * x),
         "g3(x) = 0.5 * sqrt(10 - x^3)": lambda x: 0.5 * math.sqrt(10 - x**3),
         "g4(x) = sqrt(10 / (4 + x))": lambda x: math.sqrt(10 / (4 + x)),
-        "g5(x) = x - (x^3 + 4x^2 - 10)/(3x^2 + 8x)": lambda x: x - (x**3 + 4*x**2 - 10)/(3*x**2 + 8*x),
+        "g5(x) = x - (x^3 + 4x^2 - 10)/(3x^2 + 8x)": lambda x: (
+            x - (x**3 + 4 * x**2 - 10) / (3 * x**2 + 8 * x)
+        ),
     }
 
     print("Problem 1 Test Cases (p0 = 1.5):")
     for name, g in test_cases.items():
         res = fixed_point_iteration(g, p0)
-        
+
         # Estimate order using true root
         p_list = [h["p"] for h in res["history"]]
         order_res = estimate_order(p_list, true_value=true_root)
