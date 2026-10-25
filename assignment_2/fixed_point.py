@@ -120,6 +120,9 @@ def fixed_point_iteration(g, p0, tol=1e-8, max_iter=100, verbose=False):
     if verbose:
         print(f"Iteration 0: p = {p}")
 
+    MAX_CONSECUTIVE_CYCLES = 10
+    MIN = 1e-12
+    consecutive_cycles = 0
     for n in range(1, max_iter + 1):
         try:
             p_next = float(g(p))
@@ -133,20 +136,28 @@ def fixed_point_iteration(g, p0, tol=1e-8, max_iter=100, verbose=False):
 
         diff = abs(p_next - p)
         history.append({"n": n, "p": p_next, "diff": diff})
-
         if verbose:
             print(f"Iteration {n}: p = {p_next}, diff = {diff}")
 
         if abs(p_next) > 1e10:
             reason = f"|p_{n}| exceeded 1e10 and diverged"
             break
-
+        
         if diff < tol:  # check convergence
             converged = True
             root = p_next
             reason = f"Converged within tolerance in {n} iterations"
             break
-
+        if (n >= 2): #check cycles
+            diff1 = p_next - p
+            diff2 = p - history[n - 2]["p"]
+            if ((abs(p_next - history[n-2]["p"]) < MIN) or (diff1 * diff2 < 0 and abs(diff1) >= abs(diff2))):
+                consecutive_cycles += 1
+            else:
+                consecutive_cycles = 0
+        if (consecutive_cycles >= MAX_CONSECUTIVE_CYCLES):
+            reason = "Cycle detected"
+            break
         p = p_next
 
     p_values = []
