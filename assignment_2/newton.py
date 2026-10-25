@@ -38,22 +38,34 @@ def newton(
         Used in central difference formula to approximate derivative
     verbose : bool, optional
         If True, prints the details of each iteration.
+
     Returns
-        -------
-        dict with keys:
-            "root", "iterations", "converged", "reason", "history"
-            (list of dicts: {n, p, f_p, fprime_p, diff}),
-            "order_estimate" -- via estimate_order() from Problem 1,
-                                reused here (imported, did not duplicate it)
+    -------
+    dict with keys:
+        "root", "iterations", "converged", "reason", "history"
+        (list of dicts: {n, p, f_p, fprime_p, diff}),
+        "order_estimate" -- via estimate_order() from Problem 1,
+                            reused here (imported, did not duplicate it)
+
     Raises
-        ------
-        ValueError -- tol <= 0, max_iter <= 0
-        TypeError -- f is not callable (or fprime, if supplied, is not)
-        ZeroDivisionError
-            -- raised (not silently caught) if |f'(p_n)| falls below a
-               small threshold at any iteration, since Newton's Method is
-               not defined there; the message must report which iteration
-               and the value of f'(p_n).
+    ------
+    ValueError -- tol <= 0, max_iter <= 0
+    TypeError -- f is not callable (or fprime, if supplied, is not)
+    ZeroDivisionError
+        -- raised (not silently caught) if |f'(p_n)| falls below a
+            small threshold at any iteration, since Newton's Method is
+           not defined there; the message must report which iteration
+           and the value of f'(p_n).
+           
+    Examples
+    --------
+    >>> result = newton(lambda x: x**2 - 2, 1, lambda x: 2*x)
+    >>> result["root"]
+    1.4142135623730951
+
+    >>> result = newton(lambda x: x**2 - 2, 1, numeric_derivative=True)
+    >>> result["root"]
+    1.4142135623730951
     """
     MIN = 1e-12
     MAX_CONSECUTIVE_CYCLES = 10
@@ -154,6 +166,7 @@ if __name__ == "__main__":
 
     print("\nTest ii\n")
     p0 = 0.5
+    f = lambda x : np.cos(x) - x
     result = newton(f, p0, numeric_derivative=True)
     print(f"Convergence: {result['converged']}")
     print(f"Root: {result['root']}")
