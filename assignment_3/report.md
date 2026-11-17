@@ -120,3 +120,79 @@ Estimate AI Usage: 30%
 -------------------------------------------------------------------------------------------------
 
 =====================================================================================================
+
+
+=====================================================================================================
+
+PROBLEM 3: Hermite interpolation
+
+Test (i): is derivative information worth it? f(x) = e^x on [0, 1]
+
+| Method                    | Nodes | Error at x = 0.25 | Max error on fine grid |
+|---------------------------|-------|-------------------|------------------------|
+| Lagrange, 3 nodes (deg 2) | 3     | 1.227e-02         | 1.442e-02              |
+| Hermite, 3 nodes (deg 5)  | 3     | 4.901e-06         | 5.577e-06              |
+| Lagrange, 6 nodes (deg 5) | 6     | 6.022e-07         | 2.655e-06              |
+
+Fewest measurement locations: Hermite (3 nodes, each with a value and a slope).
+Most accurate: Lagrange with 6 nodes, by about 8x at x = 0.25 and about 2x on the grid.
+Hermite with 3 nodes is about 2500x better than Lagrange with 3 nodes at x = 0.25, and
+it gets within a small factor of 6-node Lagrange using half the locations.
+
+Explanation with the error formulas (both have a 1/6! factor and a degree-5 polynomial):
+- Lagrange 6 nodes: f(x) - P5(x) = f^(6)(xi)/6! * prod_{i=0..5} (x - x_i)
+- Hermite 3 nodes:  f(x) - H5(x) = f^(6)(xi)/6! * prod_{i=0..2} (x - x_i)^2
+At x = 0.25 the Lagrange product is 2.7e-4 and the Hermite product is 2.2e-3, about 8 times
+larger, which matches the ratio of the observed errors (6.0e-7 vs 4.9e-6). The Hermite
+product is larger because it has only 3 distinct nodes, so the factors (x - x_i)^2 are
+less well spread over the interval. The Lagrange 3-node error has only a 1/3! factor
+and a degree-3 product, so it is far worse.
+
+Test (ii): interpolation conditions (data from (i)(b))
+max |H(x_i) - f(x_i)|   = 0.0
+max |H'(x_i) - f'(x_i)| = 0.0
+Both hold at every node (to round-off or better).
+
+Test (iii): exactness with 3 nodes (n = 2, degree 2n+1 = 5)
+max error for x^5 - 3x^2 + 1 = 6.66e-16
+max error for x^6            = 2.31e-03
+actual error at x = 0.25     = 0.002197265625
+prod (x - x_i)^2 at x = 0.25 = 0.002197265625
+
+Why: p(x) = x^5 - 3x^2 + 1 has degree 5 <= 2n+1, so f^(6) = 0 and the error term is zero.
+The interpolant is unique, so it equals p. For x^6, f^(6) = 720, so f^(6)/6! = 1 and
+the error is exactly prod (x - x_i)^2, which is not zero away from the nodes. The two
+numbers above agree, which confirms the error formula.
+
+----- Design Decisions (Problem 3) -----
+
+Doubled nodes: z = [x0, x0, x1, x1, ...]. In the divided-difference table, the first-level
+entry for a repeated node uses f'(x_i) instead of 0/0. Nodes are not sorted and may be in
+any order.
+
+H'(x): computed analytically inside the Horner loop. At each step the product rule gives
+dH_new = dH_old * (x - z_i) + H_old, so H' is found alongside H with no finite differences.
+
+Validation: x and y reuse check_data from lagrange.py (node coincidence tolerance is
+1e-12 relative). dydx_nodes is checked for numeric type, matching length, and nan/inf.
+
+Extrapolation: a warning is raised through the warnings module if x_eval is outside
+[min(x_nodes), max(x_nodes)].
+
+----- Limitations (Problem 3) -----
+
+Needs derivative values at every node; it cannot use derivatives at only some of them.
+Inaccurate derivative data gives a wrong polynomial, because the slopes are matched exactly.
+High degree amplifies round-off, and nodes that are very close make the divided differences
+large (division by small gaps).
+x_eval must be a scalar or a 1-D array.
+The coefficient table is built with O(n^2) Python loops, which is fine for small data sets.
+
+----- AI Usage (Problem 3) -----
+
+Tool used: Claude
+wrote the __main__ test block
+wrote the report.md 
+
+Estimate AI usage:
+30% 
