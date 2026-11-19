@@ -2,7 +2,38 @@ import lagrange, hermite, newton_differences
 import numpy as np
 
 def sort_inputs(x_nodes,y_nodes,dydx_nodes=None):
+    """
+    Sort the nodes by increasing x, keeping y (and dy/dx) paired with them.
 
+    Parameters
+    ----------
+    x_nodes : list/array
+        Nodes, in any order.
+    y_nodes : list/array
+        Function values at the nodes.
+    dydx_nodes : list/array, optional
+        Derivative values at the nodes.
+
+    Returns
+    -------
+    x_sorted, y_sorted, dydx_sorted : arrays
+        Sorted data (dydx_sorted is None if no derivatives were given).
+
+    Raises
+    ------
+    ValueError
+        If the input lists have different lengths.
+
+    Example
+    -------
+    >>> x, y, d = sort_inputs([2, 0, 1], [4, 0, 1])
+    >>> x
+    array([0., 1., 2.])
+    >>> y
+    array([0., 1., 4.])
+    >>> d is None
+    True
+    """
     if len(x_nodes) != len(y_nodes):
             raise ValueError("x_nodes and y_nodes must have the same length.")
     if dydx_nodes is not None and len(dydx_nodes) != len(x_nodes):
@@ -41,15 +72,40 @@ def choose_method(x_nodes, y_nodes, x_eval, dydx_nodes=None,
            otherwise (second half, or right of it) -> "newton_backward"
       3. Else (unequally spaced) -> "lagrange"
 
+    Parameters
+    ----------
+    x_nodes : list/array
+        Nodes, in any order.
+    y_nodes : list/array
+        Function values (not used in the decision).
+    x_eval : float
+        Point to evaluate at.
+    dydx_nodes : list/array, optional
+        Derivative values. If given, Hermite is chosen.
+    spacing_rtol : float, default 1e-9
+        Tolerance for deciding the node gaps are equal.
+
     Returns
     -------
     dict: {"method": str,
-           "reason": str (a human-readable sentence, e.g.
-               "nodes equally spaced with h=10; x_eval=2015 lies
-                near the end of the table (s=6.5 of n=7)"),
+           "reason": str,
            "equally_spaced": bool, "h": float or None,
            "extrapolating": bool}
+
+    Raises
+    ------
+    TypeError
+            if x_eval is not an int or float.
+    
+    Example
+    -------
+    >>> x = [0, 1, 2, 3, 4, 5]
+    >>> choose_method(x, x, 0.4)["method"]
+    'newton_forward'
     """
+    if not isinstance(x_eval, (int, float)):
+            raise TypeError("x_eval must be a single number.")
+    x_sorted,_,_ = sort_inputs(x_nodes, y_nodes, dydx_nodes)
     method = ""
     reason = ""
     equally_spaced = False
@@ -58,41 +114,71 @@ def choose_method(x_nodes, y_nodes, x_eval, dydx_nodes=None,
     n = len(x_nodes)
 
     try:
-        h = newton_differences.check_equal_spacing(x_nodes,spacing_rtol)
+        h = newton_differences.check_equal_spacing(x_sorted,spacing_rtol)
         equally_spaced = True
     except ValueError:
         h = None
-    if (x_eval < x_nodes[0]) or (x_eval > x_nodes[n-1]):
+    if (x_eval < x_sorted[0]) or (x_eval > x_sorted[n-1]):
         extrapolating = True
     if dydx_nodes is not None:
         method = "hermite"
-        reason = "dydx_nodes are available so hermite is usable"
+        reason = "derivatives given, so hermite is used"
     elif h is None:
         method = "lagrange"
-        reason = "dydx not available, data not equally spaced"
+        reason = "nodes not equally spaced and no derivative provided so used lagrange"
     else:
-        s = (x_eval-x_nodes[0])/h
+        s = (x_eval-x_sorted[0])/h
         if s<=n/2:
             method = "newton_forward"
-            reason = f"nodes equally spaced with h ={h}, x_eval lies closer to the left of table"
+            reason = f"nodes equally spaced with h={h:g}; x_eval lies near the left of the table (s={s:.3g} of n={n})"
         else:
             method = "newton_backward"
-            reason = f"nodes equally spaced with h ={h}, x_eval lies closer to the right of table"
+            reason = f"nodes equally spaced with h={h:g}; x_eval lies near the right of the table (s={s:.3g} of n={n})"
         
     return {"method": method, "reason": reason, "equally_spaced": equally_spaced, "h" : h, "extrapolating": extrapolating}
 
 def interpolate(x_nodes, y_nodes, x_eval, dydx_nodes=None,
                 degree=None, verbose=False):
     """
-    Call choose_method, then dispatch to lagrange_interpolate,
-    newton_forward, newton_backward or hermite_interpolate.
-    `degree` is passed to the Newton formulas (ignored otherwise).
+    Sort the data, pick a method with choose_method(), and evaluate it.
+
+    Parameters
+    ----------
+    x_nodes : list/array
+        Nodes, in any order.
+    y_nodes : list/array
+        Function values at the nodes.
+    x_eval : float/int
+        Point to evaluate at.
+    dydx_nodes : list/array, optional
+        Derivative values. If given, Hermite is used.
+    degree : int, optional
+        Degree for the Newton formulas (ignored by Lagrange and Hermite).
+    verbose : bool, default False
+        Print the method, value and reason.
 
     Returns
     -------
-    the chosen method's result dict, PLUS the keys
-    "method_used" and "decision" (the dict from choose_method)
+    dict
+        The chosen method's result dict, plus "method_used" and
+        "decision" (the dict from choose_method).
+
+    Raises
+    ------
+    ValueError
+        if the method returned by choice is not lagrange, hermite, newton_forward or newton_back.
+    
+    TypeError
+        if x_eval is not an int or float.
+
+    Example
+    -------
+    >>> x = [5, 4, 3, 2, 1, 0]
+    >>> interpolate(x, x, 0.4)["method_used"]
+    'newton_forward'
     """
+    if not isinstance(x_eval, (int, float)):
+        raise TypeError("x_eval must be a single number.")
     x_sorted, y_sorted, dydx_sorted = sort_inputs(x_nodes, y_nodes, dydx_nodes)
     choice = choose_method(x_sorted, y_sorted, x_eval, dydx_sorted)
     if choice["method"] == "lagrange":
@@ -103,9 +189,22 @@ def interpolate(x_nodes, y_nodes, x_eval, dydx_nodes=None,
         result = newton_differences.newton_backward(x_sorted, y_sorted, x_eval, degree)
     elif choice["method"] == "hermite":
         result = hermite.hermite_interpolate(x_sorted, y_sorted, dydx_sorted,x_eval)
-
+    else:
+        raise ValueError(f"Unknown method: {choice['method']}")
+    
     result["method_used"] = choice["method"]
     result["decision"] = choice
+    
+    if verbose:
+        d = choice
+        h = "n/a" if d["h"] is None else f"{d['h']:g}"
+        print("-" * 70)
+        print(f"  method         : {d['method']}")
+        print(f"  value          : {float(result['value']):.8f}")
+        print(f"  degree         : {result.get('degree', 'n/a')}")
+        print(f"  equally spaced : {d['equally_spaced']}  (h = {h})")
+        print(f"  extrapolating  : {d['extrapolating']}")
+        print(f"  reason         : {d['reason']}\n")
     return result
 
 
@@ -124,9 +223,9 @@ if __name__ == "__main__":
     x_eval = [0.4, 4.7, 1.5, 1.5, 0.4, 0.15, 6.5]
     for i in range(len(x_nodes)):
         y = np.sin(x_nodes[i])
-        if i == 3:
+        if i == 3: #T4 the only one with derivative provided
             dydx_nodes = np.cos(x_nodes[i])
         else:
             dydx_nodes = None
-        r = interpolate(x_nodes[i], y, x_eval[i],dydx_nodes)
-        print(f"T{i+1}: {r['method_used']:<15} value={r['value']:.8f} | h={r['decision']['h']} | equally_spaced={r['decision']['equally_spaced']} | extrapolating={r['decision']['extrapolating']} | {r['decision']['reason']}\n")
+        print(f"T{i+1}   x_eval = {x_eval[i]}")
+        r = interpolate(x_nodes[i], y, x_eval[i],dydx_nodes,verbose = True)
