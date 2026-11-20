@@ -103,7 +103,7 @@ def choose_method(x_nodes, y_nodes, x_eval, dydx_nodes=None,
     >>> choose_method(x, x, 0.4)["method"]
     'newton_forward'
     """
-    if not isinstance(x_eval, (int, float)):
+    if not isinstance(x_eval, (int, float,np.integer, np.floating)):
             raise TypeError("x_eval must be a single number.")
     x_sorted,_,_ = sort_inputs(x_nodes, y_nodes, dydx_nodes)
     method = ""
@@ -111,14 +111,14 @@ def choose_method(x_nodes, y_nodes, x_eval, dydx_nodes=None,
     equally_spaced = False
     h = None
     extrapolating = False
-    n = len(x_nodes)
+    n = len(x_nodes)-1
 
     try:
         h = newton_differences.check_equal_spacing(x_sorted,spacing_rtol)
         equally_spaced = True
     except ValueError:
         h = None
-    if (x_eval < x_sorted[0]) or (x_eval > x_sorted[n-1]):
+    if (x_eval < x_sorted[0]) or (x_eval > x_sorted[-1]):
         extrapolating = True
     if dydx_nodes is not None:
         method = "hermite"
@@ -177,7 +177,7 @@ def interpolate(x_nodes, y_nodes, x_eval, dydx_nodes=None,
     >>> interpolate(x, x, 0.4)["method_used"]
     'newton_forward'
     """
-    if not isinstance(x_eval, (int, float)):
+    if not isinstance(x_eval, (int, float,np.integer, np.floating)):
         raise TypeError("x_eval must be a single number.")
     x_sorted, y_sorted, dydx_sorted = sort_inputs(x_nodes, y_nodes, dydx_nodes)
     choice = choose_method(x_sorted, y_sorted, x_eval, dydx_sorted)

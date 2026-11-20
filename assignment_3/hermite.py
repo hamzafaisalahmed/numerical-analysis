@@ -13,6 +13,13 @@ def hermite_coefficients(x_nodes, y_nodes, dydx_nodes):
     ----------
     x_nodes, y_nodes, dydx_nodes : lists/arrays of equal length
 
+    Returns
+        -------
+        dict : {" z ": ndarray of length 2( n +1) ,
+        " coeffs ": ndarray of the diagonal entries
+        f [ z0 ] , f [ z0 , z1 ] , ... , f [ z0 ,... , z_ {2 n +1}] ,
+        " table ": the full 2 - D divided - difference table }
+
     Raises
     ------
     ValueError -- mismatched lengths, repeated nodes, nan/inf
@@ -22,17 +29,6 @@ def hermite_coefficients(x_nodes, y_nodes, dydx_nodes):
     -------
     >>> hermite_coefficients([0, 1], [0, 1], [0, 0])["coeffs"]
     array([ 0.,  0.,  1., -2.])
-
-    Returns
-    -------
-    dict : {" z ": ndarray of length 2( n +1) ,
-    " coeffs ": ndarray of the diagonal entries
-    f [ z0 ] , f [ z0 , z1 ] , ... , f [ z0 ,... , z_ {2 n +1}] ,
-    " table ": the full 2 - D divided - difference table }
-
-    Raises
-    ------
-    ValueError -- mismatched lengths , repeated x - nodes , non - finite data
     """
 
     # simple boiler checking and exception handling
@@ -81,11 +77,39 @@ def hermite_interpolate(x_nodes, y_nodes, dydx_nodes, x_eval, return_derivative=
     ( differentiate the nested product -- do NOT use a finite difference )
 
 
+    Parameters
+    ----------
+    x_nodes : array_like
+        Distinct nodes f(x_i) locations (any order).
+    y_nodes : array_like
+        Function values at x_nodes.
+    dydx_nodes : array_like
+        Derivative values at x_nodes.
+    x_eval : float or 1-D ndarray
+        Evaluation point(s).
+    return_derivative : bool, default False
+        Whether to include H'(x_eval) in the output.
+
     Returns
     -------
+    dict
+        Keys: ``"value"`` (matches ``x_eval`` shape), ``"derivative"``
+        (matches ``x_eval`` shape or ``None``), ``"degree"`` (``2*n - 1``),
+        and ``"extrapolating"`` (bool).
 
-    dict with keys : " value " , " derivative " ( or None ) , " degree " ,
-    " extrapolating "
+    Raises
+    ------
+    ValueError
+        If inputs are empty, have mismatched lengths, contain duplicate nodes,
+        or include NaN/Inf.
+    TypeError
+        If inputs are non-numeric.
+
+    Example
+    -------
+    >>> r = hermite_interpolate([0, 1], [0, 1], [0, 0], 0.5, return_derivative=True)
+    >>> float(r["value"]), float(r["derivative"]), r["degree"]
+    (0.5, 1.5, 3)
     """
 
     result = hermite_coefficients(x_nodes, y_nodes, dydx_nodes)

@@ -790,8 +790,9 @@ def run_application_d(
     print("  and velocity at every checkpoint.\n")
 
     print(f"--- Task (c): Hermite (degree {grid_res['degree']}) Estimates at t = 18, 33, 46 s ---")
+    speed_label = "Speed H'(t) (m/s)"
     print(
-        f"{'t (s)':>7} | {'Position H(t) (m)':>18} | {'Speed H\'(t) (m/s)':>18} | "
+        f"{'t (s)':>7} | {'Position H(t) (m)':>18} | {speed_label:>18} | "
         f"{'Speed (km/h)':>14} | {'Exceeds Limit?':>15}"
     )
     print("-" * 80)

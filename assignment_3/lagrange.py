@@ -69,7 +69,7 @@ def lagrange_basis(x_nodes, k, x_eval):
 
     Example
     -------
-    >>> lagrange_basis([0, 1, 2], 1, 1.0)
+    >>> float(lagrange_basis([0, 1, 2], 1, 1.0))
     1.0
     """
     x_nodes, _ = check_data(x_nodes)
@@ -108,7 +108,7 @@ def lagrange_interpolate(x_nodes, y_nodes, x_eval, return_basis=False):
 
     Example
     -------
-    >>> lagrange_interpolate([0, 1, 2], [0, 1, 4], 1.5)["value"]
+    >>> float(lagrange_interpolate([0, 1, 2], [0, 1, 4], 1.5)["value"])
     2.25
     """
     x_nodes, y_nodes = check_data(x_nodes, y_nodes)
@@ -156,7 +156,7 @@ def interpolation_error_bound(x_nodes, x_eval, deriv_bound):
 
     Example
     -------
-    >>> interpolation_error_bound([0, 1], 0.5, 2.0)
+    >>> float(interpolation_error_bound([0, 1], 0.5, 2.0))
     0.25
     """
     x_nodes, _ = check_data(x_nodes)
