@@ -106,7 +106,7 @@ High degrees amplify round-off, and the error estimate assumes later terms are s
 ===== AI USAGE ======
 
 Tool Used : Cluade
-Reviewed my forward/backward functions and pointed out bugs (indentation, degree check, base-node initialization), explained how to fix them, provided the __main__ test block, and drafted the Design Choices and Limitations text. I wrote and debugged the final functions myself.
+Reviewed my forward/backward functions and pointed out bugs (indentation, degree check, base-node initialization), explained how to fix them, provided the __main__ test block, generated doscstrings, and drafted the Design Choices and Limitations text. I wrote and debugged the final functions myself.
 
 Estimate AI Usage: 30%
 
