@@ -1,7 +1,6 @@
 import math
 import warnings
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def check_data(x_nodes, y_nodes=None):
@@ -171,6 +170,8 @@ def interpolation_error_bound(x_nodes, x_eval, deriv_bound):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
     # (i) Kronecker property
     x = np.array([0, 1.5, 2, 4.2])
     worst = 0
