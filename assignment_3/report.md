@@ -308,3 +308,180 @@ format, the docstrings and the wording of this report. I wrote and debugged
 the final functions myself.
 
 Estimate AI usage: 30%
+--------------------------------------------------------------------------------------------------
+
+PROBLEM 5: Real-World Applications
+
+Application A: Population Between Census Years (Demography)
+
+Method chosen by choose_method:
+- x_eval = 1955 -> newton_forward (h = 10, s = 0.5 of n = 8)
+- x_eval = 2015 -> newton_backward (h = 10, s = 6.5 of n = 8)
+Agreement: yes. The census years are equally spaced (h = 10) with no derivatives,
+1955 is near the beginning of the table, and 2015 is near the end.
+
+(a) Forward difference table:
+           x        f(x)          Δy        Δ^2y        Δ^3y        Δ^4y        Δ^5y        Δ^6y        Δ^7y
+------------------------------------------------------------------------------------------------------------
+   1950.0000    151.3000     28.0000     -4.0000      3.2000     -3.4000     15.1000    -54.2000    137.4000
+   1960.0000    179.3000     24.0000     -0.8000     -0.2000     11.7000    -39.1000     83.2000            
+   1970.0000    203.3000     23.2000     -1.0000     11.5000    -27.4000     44.1000                        
+   1980.0000    226.5000     22.2000     10.5000    -15.9000     16.7000                                    
+   1990.0000    248.7000     32.7000     -5.4000      0.8000                                                
+   2000.0000    281.4000     27.3000     -4.6000                                                            
+   2010.0000    308.7000     22.7000                                                                        
+   2020.0000    331.4000                                                                                    
+
+The higher differences are irregular, not small and smooth like e^x in Problem 2.
+From Δ^3y onward they flip sign and grow large (up to 137.4 at Δ^7y), because
+census counts are affected by baby booms, immigration changes, and rounding noise
+rather than following one smooth formula. This tells us a low degree (degree 2 or 3)
+using nearby nodes is sensible; a high degree would amplify noise and oscillate.
+
+(b) Degree-3 estimates:
+- 1955 (newton_forward, degree = 3, base_node = 1950, s = 0.5):
+  value = 166.0000 million, terms = [151.3, 14.0, 0.5, 0.2], error_estimate = 0.1328 million
+- 2015 (newton_backward, degree = 3, base_node = 2020, t = -0.5):
+  value = 320.5750 million, terms = [331.4, -11.35, 0.575, -0.05], error_estimate = 0.6523 million
+
+Application B: Reading Between the Lines of a Steam Table (Thermodynamics) 
+
+Method chosen by choose_method:
+- T = 25 °C -> newton_forward (h = 10, s = 0.5 of n = 5)
+- T = 55 °C -> newton_backward (h = 10, s = 3.5 of n = 5)
+Agreement: yes. The temperatures are equally spaced (h = 10 °C) with no derivatives,
+25 °C lies in the first half of the table, and 55 °C lies in the second half.
+
+(a) & (b) Estimates, relative errors, and error_estimate:
+
+T = 25 °C (reference P_sat = 3.1698 kPa, method = newton_forward, base = 20 °C):
+
+| Degree | P_sat (kPa) | Abs. error | Rel. error (%) | error_estimate |
+|--------|-------------|------------|----------------|----------------|
+| 1      | 3.293050    | 1.2325e-01 | 3.8883%        | 1.5381e-01     |
+| 2      | 3.139238    | 3.0562e-02 | 0.9642%        | 3.7387e-02     |
+| 3      | 3.176625    | 6.8250e-03 | 0.2153%        | 7.8594e-03     |
+| 4      | 3.168766    | 1.0344e-03 | 0.0326%        | None           |
+
+T = 55 °C (reference P_sat = 15.7630 kPa, method = newton_backward, base = 60 °C):
+
+| Degree | P_sat (kPa) | Abs. error | Rel. error (%) | error_estimate |
+|--------|-------------|------------|----------------|----------------|
+| 1      | 16.149500   | 3.8650e-01 | 2.4519%        | 3.2851e-01     |
+| 2      | 15.820987   | 5.7987e-02 | 0.3679%        | 4.9962e-02     |
+| 3      | 15.771025   | 8.0250e-03 | 0.0509%        | 7.8594e-03     |
+| 4      | 15.763166   | 1.6562e-04 | 0.0011%        | None           |
+
+(c) Shape of curve, safety, and recommendation (plot saved as steam_table.png):
+- Why linear interpolation overestimates: P_sat(T) grows roughly exponentially with T,
+  so the curve is concave up (convex, P''(T) > 0) everywhere. Any straight secant line
+  connecting two points on a concave-up curve sits above the curve.
+- Safer error for pressure vessel design: when pressure determines the required wall
+  thickness, an overestimate is the safer error because it gives a slightly thicker,
+  stronger wall, whereas an underestimate could produce a wall too thin for the true
+  operating pressure.
+- Recommendation: 4 terms (degree 3) is a good engineering choice—it reduces relative
+  error to 0.22% at 25 °C and 0.05% at 55 °C while still leaving the 5th point to give
+  an error_estimate (or all 5 terms / degree 4 if maximum accuracy < 0.033% is needed).
+
+
+Application C: Drug Concentration in the Blood (Pharmacokinetics) 
+
+Method chosen by choose_method:
+- t = 3 h -> lagrange
+Agreement: yes. The sample times are unequally spaced and no derivatives are given.
+
+(a) Why neither Newton forward nor backward can be used:
+The time steps between blood draws are 0.5, 0.5, 1, 2, 2, 2, and 4 h. Because the spacing
+is not constant, finite differences are not defined on a uniform step h and
+check_equal_spacing rejects the data.
+
+(b) Estimate at t = 3 h (degree-7 Lagrange through all 8 points):
+C(3 h) = 5.669397 mg/L
+
+(c) Global degree-7 plot on [0, 12] with 2000 points (saved as pharmacokinetics.png):
+- Predicts negative concentration: yes, for t in [8.7104 h, 11.9760 h] (between the last
+  two nodes t = 8 h and t = 12 h), reaching a minimum of -11.2572 mg/L at t = 11.0155 h.
+- Why impossible and lesson: drug concentration cannot be negative (there cannot be less
+  than zero drug in the blood). Fitting one high-degree polynomial blindly through all
+  points causes large Runge-like swings across wide gaps ([8, 12] h). A low-degree local
+  interpolant around the region of interest avoids these unphysical swings.
+
+(d) Peak concentration C_max and time to peak t_max:
+- Global degree-7 interpolant: C_max = 6.6101 mg/L at t_max = 1.6568 h
+- Local degree-3 interpolant (nodes t = 0.5, 1, 2, 4 h): C_max = 6.7062 mg/L at t_max = 1.6171 h
+
+
+Application D: Was the Car Speeding? (Traffic Enforcement — Hermite)
+
+Method chosen by choose_method:
+- hermite (derivatives given)
+Agreement: yes. Both position s(t_i) and speed v(t_i) = s'(t_i) are recorded at every checkpoint.
+
+(a) Recorded speeds and average speeds vs. speed limit (100 km/h = 27.7778 m/s):
+- Recorded checkpoint speeds: 24.5, 25.0, 24.0, 25.5, 24.0 m/s (all <= 25.5 m/s < 27.78 m/s).
+- Average speeds between consecutive checkpoints:
+  [0, 12] s  : 312 / 12 = 26.0000 m/s (93.60 km/h)
+  [12, 25] s : 343 / 13 = 26.3846 m/s (94.98 km/h)
+  [25, 40] s : 407 / 15 = 27.1333 m/s (97.68 km/h)
+  [40, 52] s : 316 / 12 = 26.3333 m/s (94.80 km/h)
+Every recorded speed and every average speed is below 27.78 m/s. Based only on these
+numbers, the driver would not be fined.
+
+(b) Which interpolation method this data calls for and why:
+Hermite interpolation (degree 9 on 5 nodes), because both the function value s(t_i)
+and its derivative v(t_i) = s'(t_i) are known at each unequally spaced checkpoint.
+Lagrange would ignore the speed measurements, and Newton forward/backward cannot use
+unequally spaced times or derivatives.
+
+(c) Hermite (degree 9) estimates at t = 18, 33, 46 s (plot saved as speed_profile.png):
+
+| t (s) | Position H(t) (m) | Speed H'(t) (m/s) | Speed (km/h) | Exceeds 27.78 m/s? |
+|-------|-------------------|-------------------|--------------|--------------------|
+| 18.0  | 475.1553          | 27.7799           | 100.01       | Yes                |
+| 33.0  | 862.5932          | 28.9689           | 104.29       | Yes                |
+| 46.0  | 1201.9417         | 24.4854           | 88.15        | No                 |
+
+In every interval, the checkpoint speeds (24.0 to 25.5 m/s) are below the interval's
+average speed (26.00 to 27.13 m/s), which means the car slowed down at each camera and
+sped up between cameras. H'(t) exceeds 27.78 m/s in all four intervals ([0.44, 4.29] s,
+[15.37, 17.99] s, [31.43, 38.14] s, and [47.48, 51.56] s), reaching 28.97 m/s
+(104.29 km/h) at t = 33 s and a peak of 32.60 m/s (117.35 km/h) at t = 50.00 s.
+
+
+----- Method-Selection Summary -----
+
+| Step | Condition to check                         | Method to use   | Why                                                      |
+|------|--------------------------------------------|-----------------|----------------------------------------------------------|
+| 1    | Derivatives f'(x_i) are given at the nodes | Hermite         | Matches both values and slopes (degree 2n+1)             |
+| 2a   | Equally spaced (h constant) and s <= n/2   | Newton forward  | Uses differences near the start of the table; O(n) eval  |
+| 2b   | Equally spaced (h constant) and s > n/2    | Newton backward | Uses differences near the end of the table; O(n) eval    |
+| 3    | Unequally spaced and no derivatives        | Lagrange        | Works for any distinct node spacing                      |
+
+
+----- Design Choices & Limitations (Problem 5) -----
+
+Design choices:
+- Each application has a reusable evaluation function that accepts arbitrary data
+  (x_nodes, y_nodes, optional dydx_nodes) and scalar or 1-D array x_eval, plus a
+  runner function called from __main__.
+- Application B delegates forward/backward selection to interpolate() for each degree.
+- Application C compares the global degree-7 Lagrange polynomial with a local degree-3
+  Lagrange polynomial on the four nodes surrounding the peak.
+- Application D computes H(t) and H'(t) analytically in a single hermite_interpolate
+  call with return_derivative=True.
+
+Limitations:
+- High-degree global polynomials on noisy (Application A) or wide/uneven (Application C
+  and D) data exhibit Runge-like oscillations near the ends of the interval.
+- interpolate() accepts scalar x_eval only, so array evaluation in Applications A and B
+  loops over x_eval when calling interpolate(), while Applications C and D pass the
+  1-D array directly to lagrange_interpolate and hermite_interpolate.
+
+----- AI Usage (Problem 4) -----
+
+Tool used: Gemini 4 Argon 
+
+Used for generating doc strings, review of code fixing many minor and some major bugs.
+Also used for generating the code for generating the images
+Estimated Usage: 25%
