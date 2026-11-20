@@ -103,7 +103,12 @@ def choose_method(x_nodes, y_nodes, x_eval, dydx_nodes=None,
     >>> choose_method(x, x, 0.4)["method"]
     'newton_forward'
     """
-    if not isinstance(x_eval, (int, float,np.integer, np.floating)):
+    if isinstance(x_eval, np.ndarray):
+        if x_eval.size != 1 or x_eval.ndim != 1:
+            raise TypeError("x_eval must be a single number.")
+        else:
+            x_eval = float(x_eval[0])
+    elif not isinstance(x_eval, (int, float,np.integer, np.floating)):
             raise TypeError("x_eval must be a single number.")
     x_sorted,_,_ = sort_inputs(x_nodes, y_nodes, dydx_nodes)
     method = ""
@@ -177,8 +182,13 @@ def interpolate(x_nodes, y_nodes, x_eval, dydx_nodes=None,
     >>> interpolate(x, x, 0.4)["method_used"]
     'newton_forward'
     """
-    if not isinstance(x_eval, (int, float,np.integer, np.floating)):
-        raise TypeError("x_eval must be a single number.")
+    if isinstance(x_eval, np.ndarray):
+        if x_eval.size != 1 or x_eval.ndim != 1:
+            raise TypeError("x_eval must be a single number.")
+        else:
+            x_eval = float(x_eval[0])
+    elif not isinstance(x_eval, (int, float,np.integer, np.floating)):
+                raise TypeError("x_eval must be a single number.")
     x_sorted, y_sorted, dydx_sorted = sort_inputs(x_nodes, y_nodes, dydx_nodes)
     choice = choose_method(x_sorted, y_sorted, x_eval, dydx_sorted)
     if choice["method"] == "lagrange":

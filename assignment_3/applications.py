@@ -3,47 +3,72 @@ import matplotlib.pyplot as plt
 
 from lagrange import check_data, lagrange_interpolate
 from newton_differences import (
+    check_equal_spacing,
     difference_table,
     print_difference_table,
     newton_forward,
     newton_backward,
 )
 from hermite import hermite_interpolate
-from interpolate import choose_method, interpolate
+from interpolate import choose_method, interpolate, sort_inputs
+
+
+def _validate_x_eval(x_eval):
+    """Convert x_eval to a float array and check for numeric, finite values."""
+    if isinstance(x_eval, (bool, np.bool_)):
+        raise TypeError("x_eval must be numeric.")
+    try:
+        x_eval_arr = np.asarray(x_eval, dtype=float)
+    except (TypeError, ValueError):
+        raise TypeError("x_eval must be numeric.")
+    if x_eval_arr.ndim == 0 and not isinstance(x_eval, (int, float, np.number)):
+        raise TypeError("x_eval must be numeric.")
+    if not np.all(np.isfinite(x_eval_arr)):
+        raise ValueError("x_eval contains nan or inf.")
+    return x_eval_arr
 
 
 def evaluate_census_interpolation(x_nodes, y_nodes, x_eval, degree=3):
     """
-    Estimate population at x_eval using automatic method selection and Newton
-    forward/backward differences of a given degree.
+    Estimate population at x_eval using automatic forward/backward selection
+    on equally spaced census nodes.
 
     Parameters
     ----------
     x_nodes : list or 1-D array
-        Census years (equally spaced).
+        Equally spaced census years (at least 2 nodes).
     y_nodes : list or 1-D array
         Population counts corresponding to x_nodes.
     x_eval : float or 1-D numpy array
         Year(s) at which to estimate the population.
-    degree : int, default 3
-        Polynomial degree for Newton forward/backward interpolation.
+    degree : int or None, default 3
+        Polynomial degree (1 <= degree <= len(x_nodes) - 1), or None to use all nodes.
 
     Returns
     -------
     dict
-        If x_eval is a scalar, returns the full result dict from interpolate()
-        (including "value", "degree", "base_node", "terms", "error_estimate",
-        "method_used", and "decision").
-        If x_eval is a 1-D array, returns a dict with "value" (1-D ndarray of
-        estimates) and "decisions" (list of decision dicts).
+        If x_eval is a scalar, returns the Newton result dict from interpolate()
+        with keys:
+          "value"          : float, estimated population
+          "degree"         : int, polynomial degree used
+          "base_node"      : float, starting node x_k
+          "s" or "t"       : float, normalized offset from base_node
+          "terms"          : list of float, individual Newton terms added
+          "error_estimate" : float or None, magnitude of first omitted term
+          "method_used"    : str, "newton_forward" or "newton_backward"
+          "decision"       : dict returned by choose_method()
+        If x_eval is a 1-D array, returns:
+          "value"          : 1-D ndarray of float estimates (same shape as x_eval)
+          "decisions"      : list of decision dicts for each element of x_eval
 
     Raises
     ------
     TypeError
-        If inputs are non-numeric.
+        If x_nodes, y_nodes, or x_eval is non-numeric.
     ValueError
-        If x_nodes and y_nodes have mismatched lengths, fewer than 2 nodes,
-        are not equally spaced, or degree is out of range.
+        If x_nodes and y_nodes have different lengths, fewer than 2 nodes,
+        repeated nodes, non-finite values, unequal spacing, or if degree is
+        outside [1, len(x_nodes) - 1].
 
     Example
     -------
@@ -53,8 +78,10 @@ def evaluate_census_interpolation(x_nodes, y_nodes, x_eval, degree=3):
     166.0
     """
     x_arr, y_arr = check_data(x_nodes, y_nodes)
-    if np.ndim(x_eval) > 0:
-        x_eval_arr = np.asarray(x_eval, dtype=float)
+    check_equal_spacing(x_arr)
+    x_eval_arr = _validate_x_eval(x_eval)
+
+    if x_eval_arr.ndim > 0:
         values = []
         decisions = []
         for xe in x_eval_arr:
@@ -63,18 +90,18 @@ def evaluate_census_interpolation(x_nodes, y_nodes, x_eval, degree=3):
             decisions.append(res["decision"])
         return {"value": np.array(values, dtype=float), "decisions": decisions}
 
-    return interpolate(x_arr, y_arr, float(x_eval), degree=degree)
+    return interpolate(x_arr, y_arr, float(x_eval_arr), degree=degree)
 
 
 def evaluate_steam_table(x_nodes, y_nodes, x_eval, degrees=(1, 2, 3, 4), ref_value=None):
     """
     Estimate saturation pressure at x_eval across multiple polynomial degrees
-    using automatic forward/backward selection.
+    using automatic forward/backward selection on equally spaced temperatures.
 
     Parameters
     ----------
     x_nodes : list or 1-D array
-        Tabulated temperatures T (deg C).
+        Equally spaced tabulated temperatures T (deg C).
     y_nodes : list or 1-D array
         Tabulated saturation pressures P_sat (kPa).
     x_eval : float or 1-D numpy array
@@ -82,7 +109,7 @@ def evaluate_steam_table(x_nodes, y_nodes, x_eval, degrees=(1, 2, 3, 4), ref_val
     degrees : tuple/list of int, default (1, 2, 3, 4)
         Degrees of Newton interpolation to compare when x_eval is a scalar.
     ref_value : float, optional
-        Reference saturation pressure at scalar x_eval for relative error calculation.
+        Reference saturation pressure at scalar x_eval for error calculation.
 
     Returns
     -------
@@ -93,14 +120,15 @@ def evaluate_steam_table(x_nodes, y_nodes, x_eval, degrees=(1, 2, 3, 4), ref_val
                         "method_used", "value", "error_estimate", "abs_error",
                         "rel_error", "base_node"}
         If x_eval is a 1-D array:
-            {"value": 1-D ndarray evaluated with highest degree in degrees}
+            {"value": 1-D ndarray evaluated with max(degrees)}
 
     Raises
     ------
     TypeError
         If inputs are non-numeric.
     ValueError
-        If nodes are not equally spaced, lengths mismatch, or degree is invalid.
+        If nodes are not equally spaced, lengths mismatch, values are non-finite,
+        or any degree is invalid.
 
     Example
     -------
@@ -111,8 +139,10 @@ def evaluate_steam_table(x_nodes, y_nodes, x_eval, degrees=(1, 2, 3, 4), ref_val
     2
     """
     x_arr, y_arr = check_data(x_nodes, y_nodes)
-    if np.ndim(x_eval) > 0:
-        x_eval_arr = np.asarray(x_eval, dtype=float)
+    check_equal_spacing(x_arr)
+    x_eval_arr = _validate_x_eval(x_eval)
+
+    if x_eval_arr.ndim > 0:
         deg = max(degrees) if degrees else None
         vals = np.array(
             [float(interpolate(x_arr, y_arr, float(xe), degree=deg)["value"]) for xe in x_eval_arr],
@@ -120,7 +150,7 @@ def evaluate_steam_table(x_nodes, y_nodes, x_eval, degrees=(1, 2, 3, 4), ref_val
         )
         return {"value": vals}
 
-    xe = float(x_eval)
+    xe = float(x_eval_arr)
     decision = choose_method(x_arr, y_arr, xe)
     results = []
     for d in degrees:
@@ -185,9 +215,9 @@ def evaluate_pharmacokinetics(x_nodes, y_nodes, x_eval):
     3
     """
     x_arr, y_arr = check_data(x_nodes, y_nodes)
-    res = lagrange_interpolate(x_arr, y_arr, x_eval)
+    x_eval_arr = _validate_x_eval(x_eval)
+    res = lagrange_interpolate(x_arr, y_arr, x_eval_arr)
     vals = np.asarray(res["value"], dtype=float)
-    x_eval_arr = np.asarray(x_eval, dtype=float)
 
     sample_x = float(x_eval_arr) if x_eval_arr.ndim == 0 else float(x_eval_arr[len(x_eval_arr) // 2])
     decision = choose_method(x_arr, y_arr, sample_x)
@@ -269,9 +299,17 @@ def evaluate_traffic_hermite(x_nodes, y_nodes, dydx_nodes, x_eval, speed_limit=1
     5
     """
     x_arr, y_arr = check_data(x_nodes, y_nodes)
-    v_arr = np.asarray(dydx_nodes, dtype=float)
+    try:
+        v_arr = np.asarray(dydx_nodes, dtype=float)
+    except (TypeError, ValueError):
+        raise TypeError("dydx_nodes must be numeric.")
     if len(v_arr) != len(x_arr):
         raise ValueError("dydx_nodes must have the same length as x_nodes.")
+    if not np.all(np.isfinite(v_arr)):
+        raise ValueError("dydx_nodes contains nan or inf.")
+
+    x_arr, y_arr, v_arr = sort_inputs(x_arr, y_arr, v_arr)
+    x_eval_arr = _validate_x_eval(x_eval)
 
     dt = np.diff(x_arr)
     ds = np.diff(y_arr)
@@ -283,7 +321,6 @@ def evaluate_traffic_hermite(x_nodes, y_nodes, dydx_nodes, x_eval, speed_limit=1
     herm = hermite_interpolate(x_arr, y_arr, v_arr, x_eval, return_derivative=True)
     pos = np.asarray(herm["value"], dtype=float)
     spd = np.asarray(herm["derivative"], dtype=float)
-    x_eval_arr = np.asarray(x_eval, dtype=float)
 
     sample_x = float(x_eval_arr) if x_eval_arr.ndim == 0 else float(x_eval_arr[0])
     decision = choose_method(x_arr, y_arr, sample_x, dydx_nodes=v_arr)
@@ -352,8 +389,9 @@ def run_application_a(years, population, eval_years=(1955.0, 2015.0), degree=3):
     print("APPLICATION A: Population Between Census Years (Demography)")
     print("=" * 78)
 
+    years_s, pop_s, _ = sort_inputs(years, population)
     for yr in eval_years:
-        dec = choose_method(years, population, float(yr))
+        dec = choose_method(years_s, pop_s, float(yr))
         print(f"choose_method at x_eval = {yr:g}: '{dec['method']}'")
         print(f"  Reason: {dec['reason']}")
     print("  Agreement: Yes. The census years are equally spaced (h = 10), no derivatives")
@@ -361,7 +399,7 @@ def run_application_a(years, population, eval_years=(1955.0, 2015.0), degree=3):
     print("  2015 is near the end of the table (Newton backward).\n")
 
     print("--- Task (a): Forward Difference Table ---")
-    print_difference_table(years, population, decimals=4)
+    print_difference_table(years_s, pop_s, decimals=4)
     print("\nAnalysis of differences:")
     print("  Unlike e^x in Problem 2 (where higher differences decreased smoothly and")
     print("  remained positive), the census differences beyond Delta^2 y oscillate in")
@@ -452,7 +490,8 @@ def run_application_b(
     print("--- Tasks (a) & (b): Estimates, Relative Errors, and Error Estimates ---")
     for t_eval, p_ref in eval_points:
         out = all_results[t_eval]
-        print(f"\nT = {t_eval:g} deg C  (Reference P_sat = {p_ref:.4f} kPa, Method = {out['decision']['method']}):")
+        ref_str = "None" if p_ref is None else f"{p_ref:.4f} kPa"
+        print(f"\nT = {t_eval:g} deg C  (Reference P_sat = {ref_str}, Method = {out['decision']['method']}):")
         print(
             f"{'Deg':>4} | {'Base T':>7} | {'P_sat (kPa)':>13} | {'Abs Error':>11} | "
             f"{'Rel Error (%)':>13} | {'error_estimate':>14}"
@@ -460,18 +499,20 @@ def run_application_b(
         print("-" * 74)
         for r in out["results"]:
             est_str = "None" if r["error_estimate"] is None else f"{r['error_estimate']:.4e}"
-            rel_pct = 100.0 * r["rel_error"]
+            abs_str = "None" if r["abs_error"] is None else f"{r['abs_error']:.4e}"
+            rel_str = "None" if r["rel_error"] is None else f"{100.0 * r['rel_error']:>12.4f}%"
             print(
                 f"{r['degree']:>4} | {r['base_node']:>7.1f} | {r['value']:>13.6f} | "
-                f"{r['abs_error']:>11.4e} | {rel_pct:>12.4f}% | {est_str:>14}"
+                f"{abs_str:>11} | {rel_str:>13} | {est_str:>14}"
             )
 
     # Task (c): Plot P_sat against T
     grid_t = np.linspace(min(temps), max(temps), 500)
-    p_deg4 = evaluate_steam_table(temps, pressures, grid_t, degrees=(4,))["value"]
+    max_deg = max(degrees) if degrees else min(4, len(temps) - 1)
+    p_high = evaluate_steam_table(temps, pressures, grid_t, degrees=(max_deg,))["value"]
 
     plt.figure(figsize=(8, 5.5))
-    plt.plot(grid_t, p_deg4, "b-", linewidth=2, label="Degree-4 Newton interpolant")
+    plt.plot(grid_t, p_high, "b-", linewidth=2, label=f"Degree-{max_deg} Newton interpolant")
     plt.plot(
         temps,
         pressures,
@@ -483,22 +524,24 @@ def run_application_b(
     plt.plot(temps, pressures, "ro", markersize=7, label="Steam table data nodes")
 
     for t_eval, p_ref in eval_points:
-        r1 = all_results[t_eval]["results"][0]["value"]
-        r3 = all_results[t_eval]["results"][2]["value"]
-        plt.plot(
-            t_eval,
-            r1,
-            "ms",
-            markersize=7,
-            label=f"Linear est. at {t_eval:g} °C ({r1:.3f} kPa)" if t_eval == eval_points[0][0] else "_nolegend_",
-        )
-        plt.plot(
-            t_eval,
-            p_ref,
-            "g^",
-            markersize=8,
-            label=f"Reference P_sat ({p_ref:.3f} kPa)" if t_eval == eval_points[0][0] else "_nolegend_",
-        )
+        if all_results[t_eval]["results"]:
+            r_first = all_results[t_eval]["results"][0]
+            r1 = r_first["value"]
+            plt.plot(
+                t_eval,
+                r1,
+                "ms",
+                markersize=7,
+                label=f"Linear est. at {t_eval:g} °C ({r1:.3f} kPa)" if t_eval == eval_points[0][0] else "_nolegend_",
+            )
+        if p_ref is not None:
+            plt.plot(
+                t_eval,
+                p_ref,
+                "g^",
+                markersize=8,
+                label=f"Reference P_sat ({p_ref:.3f} kPa)" if t_eval == eval_points[0][0] else "_nolegend_",
+            )
 
     plt.title("Saturation Pressure of Water $P_{sat}$ vs. Temperature $T$")
     plt.xlabel("Temperature $T$ (°C)")
@@ -606,8 +649,9 @@ def run_application_c(
         neg_intervals.append((t_start, t_end))
 
     # Also compute a local cubic Lagrange interpolant on the 4 nodes around the peak: [0.5, 1, 2, 4]
-    local_t = np.array(times[1:5], dtype=float)
-    local_c = np.array(concentrations[1:5], dtype=float)
+    times_s, conc_s, _ = sort_inputs(times, concentrations)
+    local_t = np.array(times_s[1:5], dtype=float)
+    local_c = np.array(conc_s[1:5], dtype=float)
     local_grid_t = np.linspace(local_t[0], local_t[-1], 2000)
     local_res = evaluate_pharmacokinetics(local_t, local_c, local_grid_t)
     local_at_3 = evaluate_pharmacokinetics(local_t, local_c, t_target)["value"]
@@ -750,8 +794,9 @@ def run_application_d(
     print("=" * 78)
 
     speed_limit_ms = speed_limit_kmh / 3.6
-    grid_t = np.linspace(min(times), max(times), 2001)
-    grid_res = evaluate_traffic_hermite(times, positions, speeds, grid_t, speed_limit=speed_limit_ms)
+    times_s, positions_s, speeds_s = sort_inputs(times, positions, speeds)
+    grid_t = np.linspace(min(times_s), max(times_s), 2001)
+    grid_res = evaluate_traffic_hermite(times_s, positions_s, speeds_s, grid_t, speed_limit=speed_limit_ms)
     dec = grid_res["decision"]
 
     print(f"choose_method: '{dec['method']}'")
@@ -764,15 +809,16 @@ def run_application_d(
         f"--- Task (a): Recorded & Average Speeds vs. Limit "
         f"({speed_limit_kmh:g} km/h = {speed_limit_ms:.4f} m/s) ---"
     )
-    print(f"  Recorded instantaneous speeds (m/s): {list(speeds)}")
-    print(f"  Max recorded speed                 : {max(speeds):.2f} m/s ({max(speeds)*3.6:.2f} km/h) < {speed_limit_ms:.2f} m/s")
+    clean_speeds = [float(v) for v in speeds_s]
+    print(f"  Recorded instantaneous speeds (m/s): {clean_speeds}")
+    print(f"  Max recorded speed                 : {max(clean_speeds):.2f} m/s ({max(clean_speeds)*3.6:.2f} km/h) < {speed_limit_ms:.2f} m/s")
     print("\n  Interval average speeds v_avg = Delta s / Delta t:")
-    for i in range(len(times) - 1):
+    for i in range(len(times_s) - 1):
         v_avg = grid_res["avg_speeds"][i]
         print(
-            f"    [{times[i]:>2g} s, {times[i+1]:>2g} s]: "
-            f"Delta s = {positions[i+1] - positions[i]:>4g} m, "
-            f"Delta t = {times[i+1] - times[i]:>2g} s  ->  "
+            f"    [{times_s[i]:>2g} s, {times_s[i+1]:>2g} s]: "
+            f"Delta s = {positions_s[i+1] - positions_s[i]:>4g} m, "
+            f"Delta t = {times_s[i+1] - times_s[i]:>2g} s  ->  "
             f"v_avg = {v_avg:.4f} m/s ({v_avg * 3.6:.2f} km/h)"
         )
     print(f"  All recorded speeds below limit? {grid_res['all_recorded_below']}")
@@ -798,7 +844,7 @@ def run_application_d(
     print("-" * 80)
     pt_estimates = {}
     for te in eval_times:
-        r = evaluate_traffic_hermite(times, positions, speeds, float(te), speed_limit=speed_limit_ms)
+        r = evaluate_traffic_hermite(times_s, positions_s, speeds_s, float(te), speed_limit=speed_limit_ms)
         pt_estimates[float(te)] = r
         spd_kmh = r["speed"] * 3.6
         exceeds = "YES (SPEEDING)" if r["speed"] > speed_limit_ms else "No"
@@ -808,7 +854,6 @@ def run_application_d(
         )
 
     over_mask = grid_res["speed"] > speed_limit_ms
-    over_t = grid_t[over_mask]
     # Find contiguous intervals where speed > speed_limit_ms
     speeding_intervals = []
     if np.any(over_mask):
@@ -825,14 +870,20 @@ def run_application_d(
     if speeding_intervals:
         iv_str = ", ".join(f"[{a:.2f} s, {b:.2f} s]" for a, b in speeding_intervals)
         print(f"  Intervals where H'(t) > {speed_limit_ms:.2f} m/s: {iv_str}")
-    print("  Why the car must have sped between checkpoints: In every interval, the")
-    print("  recorded speeds at both checkpoints (24.0 to 25.5 m/s) are noticeably lower")
-    print("  than the average speed across the interval (26.00 to 27.13 m/s). That means")
-    print("  the driver slowed down for each camera and accelerated between cameras.")
-    print("  In particular, on [25, 40] s the average speed is 27.1333 m/s while the")
-    print("  endpoint speeds are 24.0 and 25.5 m/s, forcing H'(t) above the 27.78 m/s")
-    print("  limit (reaching 28.97 m/s = 104.29 km/h at t = 33 s, and peaking at 29.59 m/s")
-    print("  on [25, 40] s and 32.60 m/s near t = 50 s in the degree-9 polynomial).\n")
+    print("  Interpretation of the Hermite speed profile:")
+    print("  1. By the Mean Value Theorem alone, the highest interval average speed is")
+    print("     27.1333 m/s on [25, 40] s, which only guarantees that the car reached at")
+    print("     least 27.1333 m/s (< 27.78 m/s limit). So MVT by itself does NOT prove speeding.")
+    print("  2. However, at every checkpoint the recorded instantaneous speed (24.0 to")
+    print("     25.5 m/s) is noticeably lower than the average speed on the adjacent")
+    print("     intervals (26.00 to 27.13 m/s). Because the car passes each camera below")
+    print("     the interval average speed and must vary its speed smoothly, it has to")
+    print("     accelerate above the average speed between cameras and brake before the")
+    print("     next camera. In the degree-9 Hermite model H'(t), this overshoot pushes")
+    print("     the speed above the 27.78 m/s limit in all four intervals (e.g., 28.97 m/s")
+    print("     = 104.29 km/h at t = 33 s), though the sharp end peaks (31.84 m/s near")
+    print("     t = 2 s and 32.60 m/s near t = 50 s) are also amplified by high-degree")
+    print("     global polynomial oscillation.\n")
 
     plt.figure(figsize=(8.5, 5.5))
     plt.plot(grid_t, grid_res["speed"], "b-", linewidth=2, label="Hermite speed profile $H'(t)$ (degree 9)")
@@ -853,7 +904,7 @@ def run_application_d(
             alpha=0.45,
             label="Speeding zone ($H'(t) > 27.78$ m/s)",
         )
-    plt.plot(times, speeds, "ko", markersize=7, label="Checkpoint speed readings $v(t_i)$")
+    plt.plot(times_s, speeds_s, "ko", markersize=7, label="Checkpoint speed readings $v(t_i)$")
 
     eval_t_arr = np.array(eval_times, dtype=float)
     eval_v_arr = np.array([pt_estimates[float(t)]["speed"] for t in eval_times], dtype=float)
@@ -873,7 +924,8 @@ def run_application_d(
         "estimates": pt_estimates,
         "max_speed": grid_res["max_speed"],
         "max_speed_time": grid_res["max_speed_time"],
-        "speeding_interval": (float(over_t[0]), float(over_t[-1])) if len(over_t) > 0 else None,
+        "speeding_interval": speeding_intervals,
+        "speeding_intervals": speeding_intervals,
     }
 
 
